@@ -1,4 +1,4 @@
-use meshbool::{cube, cross_section, get_mesh_gl};
+use meshbool::{cross_section, cube, get_mesh_gl};
 use nalgebra::Vector3;
 
 #[test]
