@@ -1,7 +1,8 @@
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use crate::boolean3::Boolean3;
 use crate::common::OpType;
-use crate::r#impl::{Impl, Relation};
+pub use r#impl::Impl;
+use crate::r#impl::Relation;
 use crate::shared::normal_transform;
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
@@ -324,6 +325,30 @@ pub enum ManifoldError
 	NonFiniteVertex,
 	InvalidConstruction,
 	ResultTooLarge,
+}
+
+///Cross-section functionality - slices a manifold at a given height along the Z-axis.
+///This function is not yet implemented in meshbool.
+pub fn cross_section(_impl: &Impl, _height: f64) -> Impl {
+    unimplemented!("cross_section functionality not yet implemented")
+}
+
+///Convex hull functionality - computes the convex hull of a mesh.
+///This function is not yet implemented in meshbool.
+pub fn hull(_impl: &Impl) -> Impl {
+    unimplemented!("hull functionality not yet implemented")
+}
+
+///Signed Distance Field functionality - creates SDF from a mesh.
+///This function is not yet implemented in meshbool.
+pub fn sdf(_impl: &Impl, _tolerance: f64) -> Impl {
+    unimplemented!("sdf functionality not yet implemented")
+}
+
+///Smooth functionality - applies smoothing to a mesh.
+///This function is not yet implemented in meshbool.
+pub fn smooth(_impl: &Impl, _tolerance: f64) -> Impl {
+    unimplemented!("smooth functionality not yet implemented")
 }
 
 ///The most complete output of this library, returning a MeshGL that is designed
