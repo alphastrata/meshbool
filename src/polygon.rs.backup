@@ -4,9 +4,9 @@ use crate::utils::{K_PRECISION, ccw};
 use crate::vec::InsertSorted;
 use nalgebra::{Matrix2, Point2, Vector2, Vector3};
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::ops::Range;
-use std::{collections::VecDeque, mem, ptr};
+use std::{collections::BTreeMap, ptr};
 
 const K_BEST: f64 = f64::NEG_INFINITY;
 
@@ -496,7 +496,11 @@ impl EarClip {
             return connector;
         }
 
-        let above_i32 = if connector_ref.pos.y > start_ref.pos.y { 1 } else { -1 };
+        let above_i32 = if connector_ref.pos.y > start_ref.pos.y {
+            1
+        } else {
+            -1
+        };
         let above_f64 = above_i32 as f64;
 
         let mut check_vert = |vert: usize, polygon: &mut Vec<Vert>| {
@@ -505,8 +509,7 @@ impl EarClip {
             let edge_ref = &polygon[edge];
             let connector_ref = &polygon[connector];
 
-            let inside =
-                above_i32 * ccw(start_ref.pos, vert.pos, connector_ref.pos, epsilon);
+            let inside = above_i32 * ccw(start_ref.pos, vert.pos, connector_ref.pos, epsilon);
             if vert.pos.x > start_ref.pos.x - epsilon
                 && vert.pos.y * above_f64 > start_ref.pos.y * above_f64 - epsilon
                 && (inside > 0
@@ -583,7 +586,11 @@ impl EarClip {
     ///Create a collider of all vertices in this polygon, each expanded by
     ///epsilon_. Each ear uses this BVH to quickly find a subset of vertices to
     ///check for cost.
-    fn vert_collider(start: usize, polygon: &mut Vec<Vert>, polygon_range: &Range<usize>) -> IdxCollider {
+    fn vert_collider(
+        start: usize,
+        polygon: &mut Vec<Vert>,
+        polygon_range: &Range<usize>,
+    ) -> IdxCollider {
         let mut itr = Vec::new();
         let mut points = Vec::new();
         Self::loop_verts(start, polygon, polygon_range, |v, polygon| {
@@ -705,14 +712,14 @@ impl Vert {
     //borrow checker do its job
     fn index2ptr(index: usize, polygon_range: &Range<usize>) -> *mut Vert {
         assert!(index < polygon_range.len());
-        (polygon_range.start + index * mem::size_of::<Vert>()) as *mut Vert
+        (polygon_range.start + index * size_of::<Vert>()) as *mut Vert
     }
 
     fn ptr2index(&self, polygon_range: &Range<usize>) -> usize {
         let address = self as *const Vert as usize;
         assert!(address >= polygon_range.start && address < polygon_range.end);
 
-        (address - polygon_range.start) / mem::size_of::<Vert>()
+        (address - polygon_range.start) / size_of::<Vert>()
     }
 
     fn is_short(&self, epsilon: f64) -> bool {
@@ -732,13 +739,18 @@ impl Vert {
         let mut center = tail;
         let mut last = center;
 
-        while !ptr::eq(next_l, next_r) && !ptr::eq(tail, next_r) &&
-                !ptr::eq(next_l, if to_left { self.right } else { self.left })
+        while !ptr::eq(next_l, next_r)
+            && !ptr::eq(tail, next_r)
+            && !ptr::eq(next_l, if to_left { self.right } else { self.left })
         {
             let edge_l = next_l.pos - center.pos;
             let l2 = edge_l.magnitude_squared();
             if l2 <= p2 {
-                next_l = if to_left { next_l.left() } else { next_l.right() };
+                next_l = if to_left {
+                    next_l.left()
+                } else {
+                    next_l.right()
+                };
                 continue;
             }
 
@@ -754,23 +766,35 @@ impl Vert {
             if lr2 <= p2 {
                 last = center;
                 center = next_l;
-                next_l = if to_left { next_l.left() } else { next_l.right() };
-                if ptr::eq(next_l, next_r) { break; }
+                next_l = if to_left {
+                    next_l.left()
+                } else {
+                    next_l.right()
+                };
+                if ptr::eq(next_l, next_r) {
+                    break;
+                }
                 next_r = next_r.right();
                 continue;
             }
 
             let mut convexity = ccw(next_l.pos, center.pos, next_r.pos, epsilon);
             if !ptr::eq(center, last) {
-                convexity += ccw(last.pos, center.pos, next_l.pos, epsilon) +
-                        ccw(next_r.pos, center.pos, last.pos, epsilon);
+                convexity += ccw(last.pos, center.pos, next_l.pos, epsilon)
+                    + ccw(next_r.pos, center.pos, last.pos, epsilon);
             }
 
-            if convexity != 0 { return convexity > 0; }
+            if convexity != 0 {
+                return convexity > 0;
+            }
 
             if l2 < r2 {
                 center = next_l;
-                next_l = if to_left { next_l.left() } else { next_l.right() };
+                next_l = if to_left {
+                    next_l.left()
+                } else {
+                    next_l.right()
+                };
             } else {
                 center = next_r;
                 next_r = next_r.right();
