@@ -15,7 +15,7 @@ fn test_cube_creation() {
 
 #[test]
 fn test_basic_shapes() {
-    use nalgebra::Point3;
+    
 
     // Test cube properties
     let cube = cube(nalgebra::Vector3::new(1.0, 1.0, 1.0), true);
@@ -27,7 +27,7 @@ fn test_basic_shapes() {
 
 #[test]
 fn test_cylinder_creation() {
-    use nalgebra::Point3;
+    
 
     let cylinder = cylinder(2.0, 1.0, 1.0, 16, false); // height, bottom radius, top radius, segments, center
     let mesh = get_mesh_gl(&cylinder, 0);

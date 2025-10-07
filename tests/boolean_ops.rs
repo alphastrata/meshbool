@@ -1,5 +1,4 @@
 use meshbool::{cube, get_mesh_gl};
-use std::ops::{Add, BitXor, Sub};
 
 #[test]
 fn test_basic_boolean_operations() {
