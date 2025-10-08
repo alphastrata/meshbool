@@ -51,34 +51,46 @@ fn is_convex(polys: &PolygonsIdx, epsilon: f64) -> bool {
     true
 }
 
-///Ear-clipping triangulator based on David Eberly's approach from Geometric
-///Tools, but adjusted to handle epsilon-valid polygons, and including a
-///fallback that ensures a manifold triangulation even for overlapping polygons.
-///This is reduced from an O(n^2) algorithm by means of our BVH Collider.
+/// Ear-clipping triangulator based on David Eberly's approach from Geometric
+/// Tools, but adjusted to handle epsilon-valid polygons, and including a
+/// fallback that ensures a manifold triangulation even for overlapping polygons.
+/// This is reduced from an O(n^2) algorithm by means of our BVH Collider.
 ///
-///The main adjustments for robustness involve clipping the sharpest ears first
-///(a known technique to get higher triangle quality), and doing an exhaustive
-///search to determine ear convexity exactly if the first geometric result is
-///within epsilon.
+/// The main adjustments for robustness involve clipping the sharpest ears first
+/// (a known technique to get higher triangle quality), and doing an exhaustive
+/// search to determine ear convexity exactly if the first geometric result is
+/// within epsilon.
+/// 
+/// # Safety
+/// This struct maintains the safety invariant for the `Vert` instances it manages:
+/// - All `Vert` instances are stored in the `polygon` vector which acts as an arena
+/// - The vector is allocated with enough capacity upfront to avoid reallocation
+/// - All vertices are dropped together when the `EarClip` instance is dropped
+/// - The raw pointers in `Vert` instances only point to other vertices in the same vector
+/// 
+/// This ensures that the unsafe pointer dereferencing in the `Vert` accessor methods
+/// is safe because the memory addresses remain valid throughout the lifetime of the
+/// `EarClip` instance.
 struct EarClip {
-    ///The flat list where all the Verts are stored. Not used much for traversal.
+    /// The flat list where all the Verts are stored. Not used much for traversal.
+    /// This vector acts as an arena, allocated with enough capacity to avoid reallocation.
     polygon: Vec<Vert>,
     //Pointers to first and last verts within self.polygon
     polygon_range: Range<usize>,
-    ///The set of right-most starting points, one for each negative-area contour.
+    /// The set of right-most starting points, one for each negative-area contour.
     //originally a c++ multiset
     holes: Vec<usize>,
-    ///The set of starting points, one for each positive-area contour.
+    /// The set of starting points, one for each positive-area contour.
     outers: Vec<usize>,
-    ///The set of starting points, one for each simple polygon.
+    /// The set of starting points, one for each simple polygon.
     simples: Vec<usize>,
-    ///Maps each hole (by way of starting point) to its bounding box.
+    /// Maps each hole (by way of starting point) to its bounding box.
     hole2bbox: BTreeMap<usize, Rect>,
-    ///The output triangulation.
+    /// The output triangulation.
     triangles: Vec<Vector3<i32>>,
-    ///Bounding box of the entire set of polygons
+    /// Bounding box of the entire set of polygons
     bbox: Rect,
-    ///Working epsilon: max of float error and input value.
+    /// Working epsilon: max of float error and input value.
     epsilon: f64,
 }
 
@@ -112,7 +124,6 @@ impl EarClip {
             Self::clip_if_degenerate(
                 v,
                 &mut ret.polygon,
-                &ret.polygon_range,
                 &mut ret.triangles,
                 ret.epsilon,
             );
@@ -180,9 +191,9 @@ impl EarClip {
 
     ///This function and JoinPolygons are the only functions that affect the
     ///circular list data structure. This helps ensure it remains circular.
-    fn link(left: usize, right: usize, polygon: &mut Vec<Vert>, polygon_range: &Range<usize>) {
-        polygon[left].right = Vert::index2ptr(right, polygon_range);
-        polygon[right].left = Vert::index2ptr(left, polygon_range);
+    fn link(left: usize, right: usize, polygon: &mut Vec<Vert>) {
+        polygon[left].right_idx = right;
+        polygon[right].left_idx = left;
         polygon[left].right_dir = Self::safe_normalize(polygon[right].pos - polygon[left].pos);
     }
 
@@ -241,7 +252,7 @@ impl EarClip {
         let ear_ref = &polygon[ear];
         let left_i = ear_ref.left().ptr2index(polygon_range);
         let right_i = ear_ref.right().ptr2index(polygon_range);
-        Self::link(left_i, right_i, polygon, polygon_range);
+        Self::link(left_i, right_i, polygon);
 
         let ear_ref = &polygon[ear];
         let self_mesh = ear_ref.mesh_idx;
@@ -262,7 +273,6 @@ impl EarClip {
     fn clip_if_degenerate(
         ear: usize,
         polygon: &mut Vec<Vert>,
-        polygon_range: &Range<usize>,
         triangles: &mut Vec<Vector3<i32>>,
         epsilon: f64,
     ) {
@@ -289,8 +299,8 @@ impl EarClip {
             let ear_ref = &polygon[ear];
             let left = ear_ref.left().ptr2index(polygon_range);
             let right = ear_ref.right().ptr2index(polygon_range);
-            Self::clip_if_degenerate(left, polygon, polygon_range, triangles, epsilon);
-            Self::clip_if_degenerate(right, polygon, polygon_range, triangles, epsilon);
+            Self::clip_if_degenerate(left, polygon, triangles, epsilon);
+            Self::clip_if_degenerate(right, polygon, triangles, epsilon);
         }
     }
 
@@ -305,8 +315,8 @@ impl EarClip {
                 ear: false,
                 pos: vert.pos,
                 right_dir: Vector2::new(0.0, 0.0),
-                left: ptr::null_mut::<Vert>(),
-                right: ptr::null_mut::<Vert>(),
+                left_idx: 0, // Will be set properly in the link function
+                right_idx: 0, // Will be set properly in the link function
             });
 
             let first = self.polygon.last().unwrap();
@@ -327,16 +337,16 @@ impl EarClip {
                     ear: false,
                     pos: vert.pos,
                     right_dir: Vector2::new(0.0, 0.0),
-                    left: ptr::null_mut::<Vert>(),
-                    right: ptr::null_mut::<Vert>(),
+                    left_idx: 0, // Will be set properly in the link function
+                    right_idx: 0, // Will be set properly in the link function
                 });
 
                 let next = self.polygon.len() - 1;
-                Self::link(last, next, &mut self.polygon, &self.polygon_range);
+                Self::link(last, next, &mut self.polygon);
                 last = next
             }
 
-            Self::link(last, first, &mut self.polygon, &self.polygon_range);
+            Self::link(last, first, &mut self.polygon);
         }
 
         if self.epsilon < 0.0 {
@@ -544,15 +554,16 @@ impl EarClip {
         let new_connector = polygon.len();
         polygon.push(polygon[connector].clone());
 
-        polygon[start].right_mut().left = Vert::index2ptr(new_start, polygon_range);
-        polygon[connector].left_mut().right = Vert::index2ptr(new_connector, polygon_range);
-        Self::link(start, connector, polygon, polygon_range);
-        Self::link(new_connector, new_start, polygon, polygon_range);
+        // Update the links between vertices using indices
+        polygon[start].right_idx = new_start;
+        polygon[connector].left_idx = new_connector;
+        Self::link(start, connector, polygon);
+        Self::link(new_connector, new_start, polygon);
 
-        Self::clip_if_degenerate(start, polygon, polygon_range, triangles, epsilon);
-        Self::clip_if_degenerate(new_start, polygon, polygon_range, triangles, epsilon);
-        Self::clip_if_degenerate(connector, polygon, polygon_range, triangles, epsilon);
-        Self::clip_if_degenerate(new_connector, polygon, polygon_range, triangles, epsilon);
+        Self::clip_if_degenerate(start, polygon, triangles, epsilon);
+        Self::clip_if_degenerate(new_start, polygon, triangles, epsilon);
+        Self::clip_if_degenerate(connector, polygon, triangles, epsilon);
+        Self::clip_if_degenerate(new_connector, polygon, triangles, epsilon);
     }
 
     fn process_ear(
@@ -665,39 +676,81 @@ struct IdxCollider {
     itr: Vec<usize>,
 }
 
-/// A circularly-linked list representing the polygon(s) that still need to be
-/// triangulated. This gets smaller as ears are clipped until it degenerates to
-/// two points and terminates.
+/// A vertex in a circular doubly-linked list representing the polygon(s) that 
+/// still need to be triangulated.
+/// 
+/// This struct forms a circular doubly-linked list where each vertex has indices
+/// to its left and right neighbors. The list gets smaller as ears are clipped 
+/// during triangulation until it degenerates to two points and terminates.
+/// 
+/// The `left_idx` and `right_idx` fields are indices into the polygon vector
+/// that stores all vertices. This allows for safe access patterns without raw pointers.
+/// 
+/// Note that `left_idx` and `right_idx` could refer to the same vertex index, as 
+/// evidenced by the C++ code: `if (v->right == v->left)`.
 #[derive(Clone)]
 struct Vert {
+    /// The mesh index this vertex belongs to
     mesh_idx: i32,
+    /// The cost associated with this vertex (used in triangulation)
     cost: f64,
+    /// Whether this vertex forms an ear (used in triangulation)
     ear: bool,
+    /// The 2D position of this vertex
     pos: Point2<f64>,
+    /// The direction vector to the right neighbor
     right_dir: Vector2<f64>,
-    left: *mut Vert,
-    right: *mut Vert,
-    //note left and right could point to the same vert,
+    /// Index of the left neighbor vertex in the polygon vector
+    left_idx: usize,
+    /// Index of the right neighbor vertex in the polygon vector
+    right_idx: usize,
+    //note left_idx and right_idx could refer to the same vert,
     //as evidenced by c++: if (v->right == v->left)
 }
 
 impl Vert {
-    //safety (for all 4): the verts are stored basically in a vec being used as an arena.
-    //the vec never reallocates and all verts are dropped together at the end
-    fn left(&self) -> &Self {
-        unsafe { &*self.left }
+    /// Returns a reference to the left neighbor vertex.
+    /// 
+    /// # Arguments
+    /// * `polygon` - Reference to the polygon vector containing all vertices
+    /// 
+    /// # Returns
+    /// A reference to the left neighbor vertex
+    fn left<'a>(&self, polygon: &'a [Self]) -> &'a Self {
+        &polygon[self.left_idx]
     }
 
-    fn right(&self) -> &Self {
-        unsafe { &*self.right }
+    /// Returns a reference to the right neighbor vertex.
+    /// 
+    /// # Arguments
+    /// * `polygon` - Reference to the polygon vector containing all vertices
+    /// 
+    /// # Returns
+    /// A reference to the right neighbor vertex
+    fn right<'a>(&self, polygon: &'a [Self]) -> &'a Self {
+        &polygon[self.right_idx]
     }
 
-    fn left_mut(&mut self) -> &mut Self {
-        unsafe { &mut *self.left }
+    /// Returns a mutable reference to the left neighbor vertex.
+    /// 
+    /// # Arguments
+    /// * `polygon` - Mutable reference to the polygon vector containing all vertices
+    /// 
+    /// # Returns
+    /// A mutable reference to the left neighbor vertex
+    fn left_mut<'a>(&mut self, polygon: &'a mut [Self]) -> &'a mut Self {
+        &mut polygon[self.left_idx]
     }
 
-    fn right_mut(&mut self) -> &mut Self {
-        unsafe { &mut *self.right }
+    /// Returns a mutable reference to the right neighbor vertex.
+    /// 
+    /// # Arguments
+    /// * `polygon` - Mutable reference to the polygon vector containing all vertices
+    /// 
+    /// # Returns
+    /// A mutable reference to the right neighbor vertex
+    fn right_mut<'a>(&mut self, polygon: &'a mut [Self]) -> &'a mut Self {
+        &mut polygon[self.right_idx]
     }
 
     //safety: this is only meant for assigning left+right fields, which should
