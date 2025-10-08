@@ -309,7 +309,11 @@ pub enum ManifoldError {
 ///Cross-section functionality - slices a manifold at a given height along the Z-axis.
 ///This function is not yet implemented in meshbool.
 pub fn cross_section(_impl: &Impl, _height: f64) -> Impl {
-    unimplemented!("cross_section functionality not yet implemented")
+    // For now, let's create a basic implementation that returns an empty manifold
+    // This will allow the tests to run and panic with our custom message
+    let mut result = Impl::default();
+    result.status = ManifoldError::InvalidConstruction;
+    result
 }
 
 ///Convex hull functionality - computes the convex hull of a mesh.
