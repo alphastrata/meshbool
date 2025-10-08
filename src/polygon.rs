@@ -124,6 +124,7 @@ impl EarClip {
             Self::clip_if_degenerate(
                 v,
                 &mut ret.polygon,
+                &ret.polygon_range,
                 &mut ret.triangles,
                 ret.epsilon,
             );
@@ -199,8 +200,8 @@ impl EarClip {
 
     ///When an ear vert is clipped, its neighbors get linked, so they get unlinked
     ///from it, but it is still linked to them.
-    fn clipped(v: &Vert) -> bool {
-        !ptr::eq(v.right().left, v)
+    fn clipped(v: &Vert, polygon: &[Vert]) -> bool {
+        !ptr::eq(v.right(polygon).left(polygon), v)
     }
 
     fn loop_verts(
@@ -212,29 +213,29 @@ impl EarClip {
         let mut v = first;
         loop {
             let mut ref_v = &polygon[v];
-            if Self::clipped(ref_v) {
+            if Self::clipped(ref_v, polygon) {
                 // Update first to an un-clipped vert so we will return to it instead
                 // of infinite-looping.
-                let new_first = ref_v.right().left();
+                let new_first = ref_v.right(polygon).left(polygon);
                 first = new_first.ptr2index(polygon_range);
-                if !Self::clipped(new_first) {
+                if !Self::clipped(new_first, polygon) {
                     v = first;
                     ref_v = &polygon[v];
-                    if ref_v.right == ref_v.left {
+                    if ref_v.right_idx == ref_v.left_idx {
                         return None;
                     }
 
                     func(v, polygon);
                 }
             } else {
-                if ref_v.right == ref_v.left {
+                if ref_v.right_idx == ref_v.left_idx {
                     return None;
                 }
 
                 func(v, polygon);
             }
 
-            v = polygon[v].right().ptr2index(polygon_range);
+            v = polygon[v].right(polygon).ptr2index(polygon_range);
             if v == first {
                 break;
             }
@@ -250,14 +251,14 @@ impl EarClip {
         triangles: &mut Vec<Vector3<i32>>,
     ) {
         let ear_ref = &polygon[ear];
-        let left_i = ear_ref.left().ptr2index(polygon_range);
-        let right_i = ear_ref.right().ptr2index(polygon_range);
+        let left_i = ear_ref.left(polygon).ptr2index(polygon_range);
+        let right_i = ear_ref.right(polygon).ptr2index(polygon_range);
         Self::link(left_i, right_i, polygon);
 
         let ear_ref = &polygon[ear];
         let self_mesh = ear_ref.mesh_idx;
-        let left_mesh = ear_ref.left().mesh_idx;
-        let right_mesh = ear_ref.right().mesh_idx;
+        let left_mesh = ear_ref.left(polygon).mesh_idx;
+        let right_mesh = ear_ref.right(polygon).mesh_idx;
 
         if left_mesh != self_mesh && self_mesh != right_mesh && right_mesh != left_mesh {
             // Filter out topological degenerates, which can form in bad
@@ -273,34 +274,35 @@ impl EarClip {
     fn clip_if_degenerate(
         ear: usize,
         polygon: &mut Vec<Vert>,
+        polygon_range: &Range<usize>,
         triangles: &mut Vec<Vector3<i32>>,
         epsilon: f64,
     ) {
         let ear_ref = &polygon[ear];
-        if Self::clipped(ear_ref) {
+        if Self::clipped(ear_ref, polygon) {
             return;
         }
 
-        if ear_ref.left == ear_ref.right {
+        if ear_ref.left_idx == ear_ref.right_idx {
             return;
         }
 
-        if ear_ref.is_short(epsilon)
+        if ear_ref.is_short(epsilon, polygon)
             || (ccw(
-                ear_ref.left().pos,
+                ear_ref.left(polygon).pos,
                 ear_ref.pos,
-                ear_ref.right().pos,
+                ear_ref.right(polygon).pos,
                 epsilon,
             ) == 0
-                && (ear_ref.left().pos - ear_ref.pos).dot(&(ear_ref.right().pos - ear_ref.pos))
+                && (ear_ref.left(polygon).pos - ear_ref.pos).dot(&(ear_ref.right(polygon).pos - ear_ref.pos))
                     > 0.0)
         {
             Self::clip_ear(ear, polygon, polygon_range, triangles);
             let ear_ref = &polygon[ear];
-            let left = ear_ref.left().ptr2index(polygon_range);
-            let right = ear_ref.right().ptr2index(polygon_range);
-            Self::clip_if_degenerate(left, polygon, triangles, epsilon);
-            Self::clip_if_degenerate(right, polygon, triangles, epsilon);
+            let left = ear_ref.left(polygon).ptr2index(polygon_range);
+            let right = ear_ref.right(polygon).ptr2index(polygon_range);
+            Self::clip_if_degenerate(left, polygon, polygon_range, triangles, epsilon);
+            Self::clip_if_degenerate(right, polygon, polygon_range, triangles, epsilon);
         }
     }
 
@@ -317,6 +319,7 @@ impl EarClip {
                 right_dir: Vector2::new(0.0, 0.0),
                 left_idx: 0, // Will be set properly in the link function
                 right_idx: 0, // Will be set properly in the link function
+                self_idx: self.polygon.len(), // Set to the current index in the vector
             });
 
             let first = self.polygon.last().unwrap();
@@ -339,6 +342,7 @@ impl EarClip {
                     right_dir: Vector2::new(0.0, 0.0),
                     left_idx: 0, // Will be set properly in the link function
                     right_idx: 0, // Will be set properly in the link function
+                    self_idx: self.polygon.len(), // Set to the current index in the vector
                 });
 
                 let next = self.polygon.len() - 1;
@@ -374,7 +378,7 @@ impl EarClip {
             let v = &polygon[v];
             bbox.union(v.pos);
             let area1 =
-                Matrix2::from_columns(&[v.pos - origin, v.right().pos - origin]).determinant();
+                Matrix2::from_columns(&[v.pos - origin, v.right(polygon).pos - origin]).determinant();
             let t1 = area + area1;
             area_compensation += (area - t1) + area1;
             area = t1;
@@ -435,20 +439,20 @@ impl EarClip {
         let mut check_edge = |edge: usize, polygon: &mut Vec<Vert>| {
             let edge = &polygon[edge];
             let start_ref = &polygon[start];
-            let x = edge.interp_y2x(start_ref.pos, on_top, epsilon);
+            let x = edge.interp_y2x(start_ref.pos, on_top, epsilon, polygon);
             if x.is_finite()
-                && start_ref.inside_edge(edge, epsilon, true)
+                && start_ref.inside_edge(edge, epsilon, true, polygon)
                 && (connector.as_ref().map_or(true, |&connector| {
                     ccw(
                         Point2::new(x, start_ref.pos.y),
                         polygon[connector].pos,
-                        polygon[connector].right().pos,
+                        polygon[connector].right(polygon).pos,
                         epsilon,
                     ) == 1
                         || (if polygon[connector].pos.y < edge.pos.y {
-                            edge.inside_edge(&polygon[connector], epsilon, false)
+                            edge.inside_edge(&polygon[connector], epsilon, false, polygon)
                         } else {
-                            !polygon[connector].inside_edge(edge, epsilon, false)
+                            !polygon[connector].inside_edge(edge, epsilon, false, polygon)
                         })
                 }))
             {
@@ -492,13 +496,13 @@ impl EarClip {
         let start_ref = &polygon[start];
         let edge_ref = &polygon[edge];
         let connector_ref = if edge_ref.pos.x < start_ref.pos.x {
-            edge_ref.right()
-        } else if edge_ref.right().pos.x < start_ref.pos.x {
+            edge_ref.right(polygon)
+        } else if edge_ref.right(polygon).pos.x < start_ref.pos.x {
             edge_ref
-        } else if edge_ref.right().pos.y - start_ref.pos.y > start_ref.pos.y - edge_ref.pos.y {
+        } else if edge_ref.right(polygon).pos.y - start_ref.pos.y > start_ref.pos.y - edge_ref.pos.y {
             edge_ref
         } else {
-            edge_ref.right()
+            edge_ref.right(polygon)
         };
 
         let mut connector = connector_ref.ptr2index(polygon_range);
@@ -523,8 +527,8 @@ impl EarClip {
                     || (inside == 0
                         && vert.pos.x < connector_ref.pos.x
                         && vert.pos.y * above_f64 < connector_ref.pos.y * above_f64))
-                && vert.inside_edge(edge_ref, epsilon, true)
-                && vert.is_reflexive(epsilon)
+                && vert.inside_edge(edge_ref, epsilon, true, polygon)
+                && vert.is_reflexive(epsilon, polygon)
             {
                 connector = vert.ptr2index(polygon_range);
             }
@@ -560,10 +564,10 @@ impl EarClip {
         Self::link(start, connector, polygon);
         Self::link(new_connector, new_start, polygon);
 
-        Self::clip_if_degenerate(start, polygon, triangles, epsilon);
-        Self::clip_if_degenerate(new_start, polygon, triangles, epsilon);
-        Self::clip_if_degenerate(connector, polygon, triangles, epsilon);
-        Self::clip_if_degenerate(new_connector, polygon, triangles, epsilon);
+        Self::clip_if_degenerate(start, polygon, polygon_range, triangles, epsilon);
+        Self::clip_if_degenerate(new_start, polygon, polygon_range, triangles, epsilon);
+        Self::clip_if_degenerate(connector, polygon, polygon_range, triangles, epsilon);
+        Self::clip_if_degenerate(new_connector, polygon, polygon_range, triangles, epsilon);
     }
 
     fn process_ear(
@@ -578,11 +582,11 @@ impl EarClip {
             polygon[v].ear = false;
         }
 
-        if polygon[v].is_short(epsilon) {
+        if polygon[v].is_short(epsilon, polygon) {
             polygon[v].cost = K_BEST;
             polygon[v].ear = true;
             ears_queue.insert_sorted_by_key(v, |&ear| OrderedF64(polygon[ear].cost)); //ascending cost
-        } else if polygon[v].is_convex(2.0 * epsilon) {
+        } else if polygon[v].is_convex(2.0 * epsilon, polygon) {
             polygon[v].cost = polygon[v].ear_cost(epsilon, collider, polygon);
             polygon[v].ear = true;
             ears_queue.insert_sorted_by_key(v, |&ear| OrderedF64(polygon[ear].cost)); //ascending cost
@@ -657,16 +661,16 @@ impl EarClip {
             Self::clip_ear(v, polygon, polygon_range, triangles);
             num_tri -= 1;
 
-            let ear_left = polygon[v].left().ptr2index(polygon_range);
+            let ear_left = polygon[v].left(polygon).ptr2index(polygon_range);
             Self::process_ear(ear_left, &vert_collider, &mut ears_queue, polygon, epsilon);
-            let ear_right = polygon[v].right().ptr2index(polygon_range);
+            let ear_right = polygon[v].right(polygon).ptr2index(polygon_range);
             Self::process_ear(ear_right, &vert_collider, &mut ears_queue, polygon, epsilon);
             // This is a backup vert that is used if the queue is empty (geometrically
             // invalid polygon), to ensure manifoldness.
             v = ear_right;
         }
 
-        debug_assert!(polygon[v].right == polygon[v].left, "Triangulator error!");
+        debug_assert!(polygon[v].right_idx == polygon[v].left_idx, "Triangulator error!");
         //finished poly
     }
 }
@@ -685,6 +689,7 @@ struct IdxCollider {
 /// 
 /// The `left_idx` and `right_idx` fields are indices into the polygon vector
 /// that stores all vertices. This allows for safe access patterns without raw pointers.
+/// The `self_idx` field stores the index of this vertex in the polygon vector.
 /// 
 /// Note that `left_idx` and `right_idx` could refer to the same vertex index, as 
 /// evidenced by the C++ code: `if (v->right == v->left)`.
@@ -704,6 +709,8 @@ struct Vert {
     left_idx: usize,
     /// Index of the right neighbor vertex in the polygon vector
     right_idx: usize,
+    /// Index of this vertex in the polygon vector
+    self_idx: usize,
     //note left_idx and right_idx could refer to the same vert,
     //as evidenced by c++: if (v->right == v->left)
 }
@@ -761,15 +768,13 @@ impl Vert {
         (polygon_range.start + index * mem::size_of::<Vert>()) as *mut Vert
     }
 
-    fn ptr2index(&self, polygon_range: &Range<usize>) -> usize {
-        let address = self as *const Vert as usize;
-        assert!(address >= polygon_range.start && address < polygon_range.end);
-
-        (address - polygon_range.start) / mem::size_of::<Vert>()
+    fn ptr2index(&self, _polygon_range: &Range<usize>) -> usize {
+        // Simply return the stored index of this vertex
+        self.self_idx
     }
 
-    fn is_short(&self, epsilon: f64) -> bool {
-        let edge = self.right().pos - self.pos;
+    fn is_short(&self, epsilon: f64, polygon: &[Vert]) -> bool {
+        let edge = self.right(polygon).pos - self.pos;
         edge.magnitude_squared() * 4.0 < epsilon.powi(2)
     }
 
@@ -778,27 +783,27 @@ impl Vert {
     ///is found (beyond epsilon). If toLeft is true, this Vert will walk its
     ///edges to the left. This should be chosen so that the edges walk in the
     ///same general direction - tail always walks to the right.
-    fn inside_edge(&self, tail: &Vert, epsilon: f64, to_left: bool) -> bool {
+    fn inside_edge(&self, tail: &Vert, epsilon: f64, to_left: bool, polygon: &[Vert]) -> bool {
         let p2 = epsilon.powi(2);
-        let mut next_l = self.left().right();
-        let mut next_r = tail.right();
+        let mut next_l = self.left(polygon).right(polygon);
+        let mut next_r = tail.right(polygon);
         let mut center = tail;
         let mut last = center;
 
         while !ptr::eq(next_l, next_r) && !ptr::eq(tail, next_r) &&
-                !ptr::eq(next_l, if to_left { self.right } else { self.left })
+                !ptr::eq(next_l, if to_left { self.right(polygon) } else { self.left(polygon) })
         {
             let edge_l = next_l.pos - center.pos;
             let l2 = edge_l.magnitude_squared();
             if l2 <= p2 {
-                next_l = if to_left { next_l.left() } else { next_l.right() };
+                next_l = if to_left { next_l.left(polygon) } else { next_l.right(polygon) };
                 continue;
             }
 
             let edge_r = next_r.pos - center.pos;
             let r2 = edge_r.magnitude_squared();
             if r2 <= p2 {
-                next_r = next_r.right();
+                next_r = next_r.right(polygon);
                 continue;
             }
 
@@ -807,9 +812,9 @@ impl Vert {
             if lr2 <= p2 {
                 last = center;
                 center = next_l;
-                next_l = if to_left { next_l.left() } else { next_l.right() };
+                next_l = if to_left { next_l.left(polygon) } else { next_l.right(polygon) };
                 if ptr::eq(next_l, next_r) { break; }
-                next_r = next_r.right();
+                next_r = next_r.right(polygon);
                 continue;
             }
 
@@ -823,10 +828,10 @@ impl Vert {
 
             if l2 < r2 {
                 center = next_l;
-                next_l = if to_left { next_l.left() } else { next_l.right() };
+                next_l = if to_left { next_l.left(polygon) } else { next_l.right(polygon) };
             } else {
                 center = next_r;
-                next_r = next_r.right();
+                next_r = next_r.right(polygon);
             }
 
             last = center;
@@ -837,20 +842,20 @@ impl Vert {
     }
 
     ///Returns true for convex or colinear ears.
-    fn is_convex(&self, epsilon: f64) -> bool {
-        ccw(self.left().pos, self.pos, self.right().pos, epsilon) >= 0
+    fn is_convex(&self, epsilon: f64, polygon: &[Vert]) -> bool {
+        ccw(self.left(polygon).pos, self.pos, self.right(polygon).pos, epsilon) >= 0
     }
 
     ///Subtly different from !IsConvex because IsConvex will return true for
     ///colinear non-folded verts, while IsReflex will always check until actual
     ///certainty is determined.
-    fn is_reflexive(&self, epsilon: f64) -> bool {
-        let left = self.left();
-        !left.inside_edge(left.right(), epsilon, true)
+    fn is_reflexive(&self, epsilon: f64, polygon: &[Vert]) -> bool {
+        let left = self.left(polygon);
+        !left.inside_edge(left.right(polygon), epsilon, true, polygon)
     }
 
-    fn interp_y2x(&self, start: Point2<f64>, on_top: i32, epsilon: f64) -> f64 {
-        let right_pos_y = self.right().pos.y;
+    fn interp_y2x(&self, start: Point2<f64>, on_top: i32, epsilon: f64, polygon: &[Vert]) -> f64 {
+        let right_pos_y = self.right(polygon).pos.y;
         if (self.pos.y - start.y).abs() <= epsilon {
             if right_pos_y <= start.y + epsilon || on_top == 1 {
                 f64::NAN
@@ -860,12 +865,12 @@ impl Vert {
         } else if self.pos.y < start.y - epsilon {
             if right_pos_y > start.y + epsilon {
                 self.pos.x
-                    + (start.y - self.pos.y) * (self.right().pos.x - self.pos.x)
+                    + (start.y - self.pos.y) * (self.right(polygon).pos.x - self.pos.x)
                         / (right_pos_y - self.pos.y)
             } else if right_pos_y < start.y - epsilon || on_top == -1 {
                 f64::NAN
             } else {
-                self.right().pos.x
+                self.right(polygon).pos.x
             }
         } else {
             f64::NAN
@@ -876,14 +881,14 @@ impl Vert {
     ///of the ear. Points are valid even when they touch, so long as their edge
     ///goes to the outside. No need to check the other side, since all verts are
     ///processed in the EarCost loop.
-    fn signed_dist(&self, v: &Vert, unit: Vector2<f64>, epsilon: f64) -> f64 {
+    fn signed_dist(&self, v: &Vert, unit: Vector2<f64>, epsilon: f64, polygon: &[Vert]) -> f64 {
         let d = Matrix2::from_columns(&[unit, v.pos - self.pos]).determinant();
         if d.abs() < epsilon {
-            let d_r = Matrix2::from_columns(&[unit, v.right().pos - self.pos]).determinant();
+            let d_r = Matrix2::from_columns(&[unit, v.right(polygon).pos - self.pos]).determinant();
             if d_r.abs() > epsilon {
                 return d_r;
             }
-            let d_l = Matrix2::from_columns(&[unit, v.left().pos - self.pos]).determinant();
+            let d_l = Matrix2::from_columns(&[unit, v.left(polygon).pos - self.pos]).determinant();
             if d_l.abs() > epsilon {
                 return d_l;
             }
@@ -894,12 +899,12 @@ impl Vert {
 
     ///Find the cost of Vert v within this ear, where openSide is the unit
     ///vector from Verts right to left - passed in for reuse.
-    fn cost(&self, v: &Vert, open_side: Vector2<f64>, epsilon: f64) -> f64 {
+    fn cost(&self, v: &Vert, open_side: Vector2<f64>, epsilon: f64, polygon: &[Vert]) -> f64 {
         let cost = self
-            .signed_dist(v, self.right_dir, epsilon)
-            .min(self.signed_dist(v, self.left().right_dir, epsilon));
+            .signed_dist(v, self.right_dir, epsilon, polygon)
+            .min(self.signed_dist(v, self.left(polygon).right_dir, epsilon, polygon));
 
-        let open_cost = Matrix2::from_columns(&[open_side, v.pos - self.right().pos]).determinant();
+        let open_cost = Matrix2::from_columns(&[open_side, v.pos - self.right(polygon).pos]).determinant();
         cost.min(open_cost)
     }
 
@@ -920,9 +925,9 @@ impl Vert {
     ///values < -epsilon so they will never affect validity. The first
     ///totalCost is designed to give priority to sharper angles. Any cost < (-1
     ///- epsilon) has satisfied the Delaunay condition.
-    fn ear_cost(&self, epsilon: f64, collider: &IdxCollider, polygon: &Vec<Vert>) -> f64 {
-        let left_pos = self.left().pos;
-        let right_pos = self.right().pos;
+    fn ear_cost(&self, epsilon: f64, collider: &IdxCollider, polygon: &[Vert]) -> f64 {
+        let left_pos = self.left(polygon).pos;
+        let right_pos = self.right(polygon).pos;
 
         let mut open_side = left_pos - right_pos;
         let center = nalgebra::center(&left_pos, &right_pos);
@@ -930,7 +935,7 @@ impl Vert {
         let radius = open_side.magnitude() / 2.0;
         open_side = open_side.normalize();
 
-        let mut total_cost = self.left().right_dir.dot(&self.right_dir) - 1.0 - epsilon;
+        let mut total_cost = self.left(polygon).right_dir.dot(&self.right_dir) - 1.0 - epsilon;
         if ccw(self.pos, left_pos, right_pos, epsilon) == 0 {
             // Clip folded ears first
             return total_cost;
@@ -944,17 +949,17 @@ impl Vert {
         ear_box.min.coords.add_scalar_mut(-epsilon);
         ear_box.max.coords.add_scalar_mut(epsilon);
 
-        let lid = self.left().mesh_idx;
-        let rid = self.right().mesh_idx;
+        let lid = self.left(polygon).mesh_idx;
+        let rid = self.right(polygon).mesh_idx;
         query_2d_tree(&collider.points, ear_box, |point| {
             let test = &polygon[collider.itr[point.idx as usize]];
-            if !EarClip::clipped(test)
+            if !EarClip::clipped(test, polygon)
                 && test.mesh_idx != self.mesh_idx
                 && test.mesh_idx != lid
                 && test.mesh_idx != rid
             {
                 // Skip duplicated verts
-                let mut cost = self.cost(test, open_side, epsilon);
+                let mut cost = self.cost(test, open_side, epsilon, polygon);
                 if cost < -epsilon {
                     cost = Self::delaunay_cost(test.pos - center, scale, epsilon);
                 }
