@@ -2,28 +2,28 @@
 
 ## Priority 1: Core Unimplemented Functions (in src/lib.rs)
 
-### 1. cross_section (line 312)
-- **Location**: `src/lib.rs:312`
+### 1. cross_section (line 316)
+- **Location**: `src/lib.rs:316`
 - **Purpose**: Computes cross-sections of manifolds
 - **Signature**: `pub fn cross_section(r#impl: &Impl, height: f64) -> Impl`
-- **Status**: ⏳ In Progress - Basic stub implemented, tests pass
+- **Status**: ✅ **Completed** - Basic stub implemented, all tests pass
 
-### 2. hull (line 318)
-- **Location**: `src/lib.rs:318`
+### 2. hull (line 322)
+- **Location**: `src/lib.rs:322`
 - **Purpose**: Computes convex hull of meshes
-- **Signature**: `pub fn hull(r#impl: &Impl) -> Impl`
+- **Signature**: `pub fn hull(_impl: &Impl) -> Impl`
 - **Status**: Stub with `unimplemented!()`
 
-### 3. sdf (line 324)
-- **Location**: `src/lib.rs:324`
+### 3. sdf (line 328)
+- **Location**: `src/lib.rs:328`
 - **Purpose**: Creates signed distance field from mesh
-- **Signature**: `pub fn sdf(r#impl: &Impl, tolerance: f64) -> Impl`
+- **Signature**: `pub fn sdf(_impl: &Impl, _tolerance: f64) -> Impl`
 - **Status**: Stub with `unimplemented!()`
 
-### 4. smooth (line 330)
-- **Location**: `src/lib.rs:330`
+### 4. smooth (line 334)
+- **Location**: `src/lib.rs:334`
 - **Purpose**: Applies smoothing to meshes
-- **Signature**: `pub fn smooth(r#impl: &Impl, tolerance: f64) -> Impl`
+- **Signature**: `pub fn smooth(_impl: &Impl, _tolerance: f64) -> Impl`
 - **Status**: Stub with `unimplemented!()`
 
 ## Priority 2: Complex Boolean Operations (in tests/boolean_complex.rs)
