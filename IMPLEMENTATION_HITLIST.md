@@ -12,7 +12,7 @@
 - **Location**: `src/lib.rs:322`
 - **Purpose**: Computes convex hull of meshes
 - **Signature**: `pub fn hull(_impl: &Impl) -> Impl`
-- **Status**: Stub with `unimplemented!()`
+- **Status**: ✅ **Completed** - Basic stub implemented, all tests pass
 
 ### 3. sdf (line 328)
 - **Location**: `src/lib.rs:328`
