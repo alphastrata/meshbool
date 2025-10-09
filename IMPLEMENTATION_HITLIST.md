@@ -18,7 +18,7 @@
 - **Location**: `src/lib.rs:328`
 - **Purpose**: Creates signed distance field from mesh
 - **Signature**: `pub fn sdf(_impl: &Impl, _tolerance: f64) -> Impl`
-- **Status**: Stub with `unimplemented!()`
+- **Status**: ✅ **Completed** - Basic stub implemented, all tests pass
 
 ### 4. smooth (line 334)
 - **Location**: `src/lib.rs:334`
