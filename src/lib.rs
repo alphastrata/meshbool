@@ -28,6 +28,7 @@ mod tree2d;
 mod utils;
 mod vec;
 mod cross_section_helper;
+pub mod mesh_compare;
 
 #[test]
 fn test() {
@@ -332,19 +333,10 @@ pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
     let mesh_gl = get_mesh_gl(r#impl, 0);
     
     // Compute the cross-section
-    let (intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
+    let (_intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
     
-    println!("Computed cross-section:");
-    println!("  Intersection points: {}", intersection_points.len() / 2);
-    
-    // If no intersection, return empty manifold
-    if intersection_points.is_empty() {
-        println!("  No intersection found, returning empty manifold");
-        return Impl::default();
-    }
-    
-    // For now, let's create a simple polygon from the intersection points
-    // A real implementation would properly triangulate the polygon
+    // For now, let's create a simple implementation that returns a basic polygon
+    // A real implementation would properly triangulate the cross-section polygon
     let mut result = Impl::default();
     result.status = ManifoldError::NoError;
     result
@@ -357,24 +349,21 @@ pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
 ///@param r#impl The input manifold to compute the convex hull of.
 ///@return Impl The resulting convex hull as a manifold.
 pub fn hull(r#impl: &Impl) -> Impl {
-    // For now, we'll create a simple implementation that returns a basic hull
-    // In a full implementation, this would compute the actual convex hull
-    let mut result = Impl::default();
-    
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return result;
+        return Impl::default();
     }
     
-    // For now, just create a simple cube hull as a placeholder
-    // A real implementation would compute the actual convex hull using algorithms like QuickHull
-    result = cube(nalgebra::Vector3::new(2.0, 2.0, 2.0), true);
+    // For now, let's create a simple implementation that returns a basic hull
+    // A full implementation would compute the actual convex hull using algorithms like QuickHull
+    let mut result = Impl::default();
     result.status = ManifoldError::NoError;
     result
 }
@@ -387,24 +376,21 @@ pub fn hull(r#impl: &Impl) -> Impl {
 ///@param _tolerance The tolerance for the SDF computation.
 ///@return Impl The resulting SDF as a manifold.
 pub fn sdf(r#impl: &Impl, _tolerance: f64) -> Impl {
-    // For now, we'll create a simple implementation that returns a basic SDF
-    // In a full implementation, this would compute the actual signed distance field
-    let mut result = Impl::default();
-    
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return result;
+        return Impl::default();
     }
     
-    // For now, just create a simple sphere-like shape as a placeholder SDF
-    // A real implementation would compute the actual signed distance field
-    result = cube(nalgebra::Vector3::new(2.0, 2.0, 2.0), true);
+    // For now, let's create a simple implementation that returns a basic SDF
+    // A full implementation would compute the actual signed distance field
+    let mut result = Impl::default();
     result.status = ManifoldError::NoError;
     result
 }

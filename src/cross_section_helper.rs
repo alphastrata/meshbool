@@ -6,15 +6,8 @@ pub fn compute_cross_section(mesh_gl: &MeshGL, height: f64) -> (Vec<f32>, Vec<u3
     let mut intersection_points = Vec::new();
     let mut polygon_indices = Vec::new();
     
-    println!("Computing cross-section for mesh with {} vertices and {} triangles", 
-             mesh_gl.vert_properties.len() / mesh_gl.num_prop as usize,
-             mesh_gl.tri_verts.len() / 3);
-    println!("Target height: {}", height);
-    
     // Map to track intersection points to avoid duplicates
     let mut point_map = std::collections::HashMap::new();
-    
-    let mut intersection_count = 0;
     
     // Iterate through all triangles
     for i in (0..mesh_gl.tri_verts.len()).step_by(3) {
@@ -35,37 +28,22 @@ pub fn compute_cross_section(mesh_gl: &MeshGL, height: f64) -> (Vec<f32>, Vec<u3
         let v2_y = mesh_gl.vert_properties[v2_idx * mesh_gl.num_prop as usize + 1] as f64;
         let v2_z = mesh_gl.vert_properties[v2_idx * mesh_gl.num_prop as usize + 2] as f64;
         
-        // Debug: Print triangle info for first few triangles
-        if i < 9 { // First 3 triangles
-            println!("Triangle {}: ({:.2},{:.2},{:.2}) ({:.2},{:.2},{:.2}) ({:.2},{:.2},{:.2})", 
-                     i/3, v0_x, v0_y, v0_z, v1_x, v1_y, v1_z, v2_x, v2_y, v2_z);
-        }
-        
         // Check for triangle-Z plane intersection
         let mut intersections = Vec::new();
         
         // Check edge v0-v1
         if let Some(intersection) = intersect_edge_with_plane(v0_x, v0_y, v0_z, v1_x, v1_y, v1_z, height) {
             intersections.push(intersection);
-            intersection_count += 1;
         }
         
         // Check edge v1-v2  
         if let Some(intersection) = intersect_edge_with_plane(v1_x, v1_y, v1_z, v2_x, v2_y, v2_z, height) {
             intersections.push(intersection);
-            intersection_count += 1;
         }
         
         // Check edge v2-v0
         if let Some(intersection) = intersect_edge_with_plane(v2_x, v2_y, v2_z, v0_x, v0_y, v0_z, height) {
             intersections.push(intersection);
-            intersection_count += 1;
-        }
-        
-        // Debug: Show intersections found
-        if !intersections.is_empty() && i < 9 {
-            println!("  Found {} intersections at height {}: {:?}", 
-                     intersections.len(), height, intersections);
         }
         
         // If we have 2 intersection points, add them to our polygon
@@ -99,22 +77,12 @@ pub fn compute_cross_section(mesh_gl: &MeshGL, height: f64) -> (Vec<f32>, Vec<u3
         }
     }
     
-    println!("Total intersections found: {}", intersection_count);
-    println!("Final intersection points: {}", intersection_points.len() / 2);
-    println!("Final polygon indices: {}", polygon_indices.len());
-    
     (intersection_points, polygon_indices)
 }
 
 /// Helper function to compute intersection of edge with Z-plane
 /// Returns None if no intersection or if intersection is at endpoint
 fn intersect_edge_with_plane(x0: f64, y0: f64, z0: f64, x1: f64, y1: f64, z1: f64, height: f64) -> Option<(f64, f64)> {
-    // Debug: Print edge info for specific case
-    if (z0 - height).abs() < 0.1 && (z1 - height).abs() < 0.1 {
-        //println!("Checking edge ({:.2},{:.2},{:.2}) to ({:.2},{:.2},{:.2}) at height {:.2}", 
-        //         x0, y0, z0, x1, y1, z1, height);
-    }
-    
     // Check if edge crosses the plane
     let z_diff = z1 - z0;
     
