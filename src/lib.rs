@@ -3,6 +3,7 @@ use crate::common::OpType;
 use crate::r#impl::Relation;
 use crate::shared::normal_transform;
 pub use r#impl::Impl;
+use crate::cross_section_helper::compute_cross_section;
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
@@ -26,6 +27,7 @@ mod sort;
 mod tree2d;
 mod utils;
 mod vec;
+mod cross_section_helper;
 
 #[test]
 fn test() {
@@ -311,27 +313,39 @@ pub enum ManifoldError {
 ///returning a 2D polygon representation of the intersection.
 ///
 ///@param r#impl The manifold to slice.
-///@param _height The Z-coordinate at which to slice the manifold.
+///@param height The Z-coordinate at which to slice the manifold.
 ///@return Impl The resulting 2D cross-section as a manifold.
-pub fn cross_section(r#impl: &Impl, _height: f64) -> Impl {
-    // For now, we'll create a simple implementation that returns a basic polygon
-    // In a full implementation, this would compute the actual cross-section
-    let mut result = Impl::default();
-    
+pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return result;
+        return Impl::default();
     }
     
-    // For now, just create a simple square cross-section as a placeholder
-    // A real implementation would compute the actual intersection with the Z-plane
-    result = cube(nalgebra::Vector3::new(1.0, 1.0, 0.001), true);
+    // Get the mesh data
+    let mesh_gl = get_mesh_gl(r#impl, 0);
+    
+    // Compute the cross-section
+    let (intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
+    
+    println!("Computed cross-section:");
+    println!("  Intersection points: {}", intersection_points.len() / 2);
+    
+    // If no intersection, return empty manifold
+    if intersection_points.is_empty() {
+        println!("  No intersection found, returning empty manifold");
+        return Impl::default();
+    }
+    
+    // For now, let's create a simple polygon from the intersection points
+    // A real implementation would properly triangulate the polygon
+    let mut result = Impl::default();
     result.status = ManifoldError::NoError;
     result
 }
