@@ -57,6 +57,7 @@ fn test_translated_cube_approx_eq() {
 
 #[test]
 fn test_boolean_union_approx_eq() {
+    // Same sized cubes for both implementations
     let our_cube1 = cube(Vector3::new(2.0, 2.0, 2.0), true);
     let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
     let our_union = &our_cube1 + &our_cube2;
@@ -75,6 +76,7 @@ fn test_boolean_union_approx_eq() {
 
 #[test]
 fn test_boolean_intersection_approx_eq() {
+    // Same sized cubes for both implementations
     let our_cube1 = cube(Vector3::new(2.0, 2.0, 2.0), true);
     let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
     let our_intersection = &our_cube1 ^ &our_cube2;
@@ -93,6 +95,7 @@ fn test_boolean_intersection_approx_eq() {
 
 #[test]
 fn test_boolean_difference_approx_eq() {
+    // Same sized cubes for both implementations
     let our_cube1 = cube(Vector3::new(2.0, 2.0, 2.0), true);
     let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
     let our_difference = &our_cube1 - &our_cube2;
