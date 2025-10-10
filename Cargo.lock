@@ -289,7 +289,9 @@ dependencies = [
 
 [[package]]
 name = "manifold-rs"
-version = "0.6.1"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc13fd30bdcdc4e77f739a533ccd32f2260e38ffa6858f724cdea62f21ac43e8"
 dependencies = [
  "cmake",
  "cxx",
