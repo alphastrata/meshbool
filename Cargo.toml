@@ -7,3 +7,7 @@ edition = "2024"
 
 [dependencies]
 nalgebra = { version = "0.34", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+manifold-rs = { path = "./manifold-rs" }
+approx = "0.5"
