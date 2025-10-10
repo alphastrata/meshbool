@@ -6,7 +6,6 @@
 //! a specified tolerance.
 
 use crate::{get_mesh_gl, Impl};
-use manifold_rs::Mesh;
 use nalgebra::Point3;
 
 /// Default tolerance for mesh comparison
@@ -49,7 +48,7 @@ pub fn approx_eq_meshes(our_mesh: &Impl, their_mesh: &manifold_rs::Manifold, tol
 }
 
 /// Compare basic mesh properties (vertex count, triangle count, etc.)
-fn approx_eq_basic_properties(our_mesh: &MeshGL, their_mesh: &Mesh, tolerance: f64) -> bool {
+fn approx_eq_basic_properties(our_mesh: &crate::MeshGL, their_mesh: &manifold_rs::Mesh, tolerance: f64) -> bool {
     let our_num_verts = our_mesh.vert_properties.len() / our_mesh.num_prop as usize;
     let their_num_verts = their_mesh.vertices().len() / 3; // x, y, z coords
     
@@ -64,7 +63,7 @@ fn approx_eq_basic_properties(our_mesh: &MeshGL, their_mesh: &Mesh, tolerance: f
 }
 
 /// Compare vertex positions between meshes
-fn approx_eq_vertex_positions(our_mesh: &MeshGL, their_mesh: &Mesh, tolerance: f64) -> bool {
+fn approx_eq_vertex_positions(our_mesh: &crate::MeshGL, their_mesh: &manifold_rs::Mesh, tolerance: f64) -> bool {
     let our_verts = extract_vertices(our_mesh);
     let their_verts = extract_manifold_vertices(their_mesh);
     
@@ -78,7 +77,7 @@ fn approx_eq_vertex_positions(our_mesh: &MeshGL, their_mesh: &Mesh, tolerance: f
 }
 
 /// Extract vertices from meshbool MeshGL
-fn extract_vertices(mesh: &MeshGL) -> Vec<Point3<f64>> {
+fn extract_vertices(mesh: &crate::MeshGL) -> Vec<Point3<f64>> {
     let num_verts = mesh.vert_properties.len() / mesh.num_prop as usize;
     let mut verts = Vec::with_capacity(num_verts);
     
@@ -94,7 +93,7 @@ fn extract_vertices(mesh: &MeshGL) -> Vec<Point3<f64>> {
 }
 
 /// Extract vertices from manifold-rs Mesh
-fn extract_manifold_vertices(mesh: &Mesh) -> Vec<Point3<f64>> {
+fn extract_manifold_vertices(mesh: &manifold_rs::Mesh) -> Vec<Point3<f64>> {
     let vertices = mesh.vertices();
     let num_verts = vertices.len() / 3;
     let mut verts = Vec::with_capacity(num_verts);
