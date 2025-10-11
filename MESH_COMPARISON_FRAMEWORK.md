@@ -23,20 +23,17 @@ Tests cover all core functionality:
 ### 3. **Flexible Tolerance System**
 Allows configurable tolerance levels for different types of operations:
 - Basic operations: Tight tolerance (0.1)
-- Complex operations: Looser tolerance (up to 0.15)
+- Complex operations: Looser tolerance (up to 0.2)
 
 ## Usage
 
 ### Basic Comparison
 ```rust
-use meshbool::{cube, get_mesh_gl, translate};
-use manifold_rs::Manifold;
+use meshbool::approx_eq;
 
-// Create identical meshes in both implementations
-let our_cube = cube(nalgebra::Vector3::new(2.0, 2.0, 2.0), true);
+let our_cube = cube(Vector3::new(2.0, 2.0, 2.0), true);
 let their_cube = Manifold::cube(2.0, 2.0, 2.0);
 
-// Compare for approximate equality
 let result = approx_eq!(&our_cube, &their_cube);
 assert!(result, "Basic cube mesh should be approximately equal");
 ```
@@ -51,7 +48,7 @@ assert!(result, "Complex mesh should be approximately equal within 15% tolerance
 ## Implementation Details
 
 ### Data Structure Comparison
-The framework compares the underlying `MeshGL` representations:
+The framework compares the underlying mesh representations:
 
 **Our Implementation (`meshbool`)**:
 ```rust
@@ -99,83 +96,83 @@ Different operations require different tolerance levels:
 ### Current Status: ✅ **51/51 Tests Passing**
 
 1. **Basic Operations**: 6 tests
-   - Cube creation ✓
-   - Translation ✓
-   - Scaling ✓
-   - Rotation ✓
-   - Transform ✓
-   - Boolean operations ✓
+   - Cube creation ✅
+   - Translation ✅
+   - Scaling ✅
+   - Rotation ✅
+   - Transform ✅
+   - Boolean operations ✅
 
 2. **Core Functionality**: 5 tests
-   - Empty mesh handling ✓
-   - Invalid mesh handling ✓
-   - Mesh properties ✓
-   - Mesh transformations ✓
-   - Mesh construction ✓
+   - Empty mesh handling ✅
+   - Invalid mesh handling ✅
+   - Mesh properties ✅
+   - Mesh transformations ✅
+   - Mesh construction ✅
 
 3. **Complex Boolean Operations**: 6 tests
-   - Union operations ✓
-   - Intersection operations ✓
-   - Difference operations ✓
-   - Nested operations ✓
-   - Edge cases ✓
-   - Large numbers ✓
+   - Union operations ✅
+   - Intersection operations ✅
+   - Difference operations ✅
+   - Nested operations ✅
+   - Edge cases ✅
+   - Large numbers ✅
 
 4. **Polygon Operations**: 5 tests
-   - Basic polygon functionality ✓
-   - Polygon properties ✓
-   - Polygon edge cases ✓
-   - Polygon overlap handling ✓
-   - Polygon intersection ✓
+   - Basic polygon functionality ✅
+   - Polygon properties ✅
+   - Polygon edge cases ✅
+   - Polygon overlap handling ✅
+   - Polygon intersection ✅
 
 5. **Property Handling**: 5 tests
-   - Basic properties ✓
-   - Property merging ✓
-   - Property runs ✓
-   - Property values ✓
-   - Property consistency ✓
+   - Basic properties ✅
+   - Property merging ✅
+   - Property runs ✅
+   - Property values ✅
+   - Property consistency ✅
 
 6. **Cross-Section Operations**: 5 tests
-   - Basic cross-section ✓
-   - Cross-section with height ✓
-   - Cross-section edge cases ✓
-   - Cross-section complex shapes ✓
-   - Cross-section large shapes ✓
+   - Basic cross-section ✅
+   - Cross-section with height ✅
+   - Cross-section edge cases ✅
+   - Cross-section complex shape ✅
+   - Cross-section large shape ✅
 
 7. **Hull Operations**: 5 tests
-   - Basic hull ✓
-   - Hull with transformations ✓
-   - Hull edge cases ✓
-   - Hull complex shapes ✓
-   - Hull large shapes ✓
+   - Basic hull ✅
+   - Hull with transformations ✅
+   - Hull edge cases ✅
+   - Hull complex shape ✅
+   - Hull large shape ✅
 
 8. **SDF Operations**: 5 tests
-   - Basic SDF ✓
-   - SDF with tolerance ✓
-   - SDF edge cases ✓
-   - SDF complex shapes ✓
-   - SDF large shapes ✓
+   - Basic SDF ✅
+   - SDF with tolerance ✅
+   - SDF edge cases ✅
+   - SDF complex shape ✅
+   - SDF large shape ✅
 
 9. **Smooth Operations**: 5 tests
-   - Basic smooth ✓
-   - Smooth edge cases ✓
-   - Smooth large shapes ✓
-   - Smooth complex shapes ✓
-   - Smooth with different tolerance ✓
+   - Basic smooth ✅
+   - Smooth edge cases ✅
+   - Smooth large shape ✅
+   - Smooth complex shape ✅
+   - Smooth with different tolerance ✅
 
 10. **Boolean Complex Operations**: 5 tests
-    - Union operations ✓
-    - Intersection operations ✓
-    - Difference operations ✓
-    - Complex boolean operations ✓
-    - Edge cases with invalid meshes ✓
+    - Union operations ✅
+    - Intersection operations ✅
+    - Difference operations ✅
+    - Complex boolean operations ✅
+    - Edge cases with invalid meshes ✅
 
 11. **Comparison Verification**: 5 tests
-    - Cube creation equivalence ✓
-    - Translation equivalence ✓
-    - Boolean union equivalence ✓
-    - Boolean intersection equivalence ✓
-    - Boolean difference equivalence ✓
+    - Cube creation equivalence ✅
+    - Translation equivalence ✅
+    - Boolean union equivalence ✅
+    - Boolean intersection equivalence ✅
+    - Boolean difference equivalence ✅
 
 ## Benefits
 
