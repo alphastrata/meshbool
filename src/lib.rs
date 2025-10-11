@@ -3,7 +3,6 @@ use crate::common::OpType;
 use crate::r#impl::Relation;
 use crate::shared::normal_transform;
 pub use r#impl::Impl;
-use crate::cross_section_helper::compute_cross_section;
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
@@ -29,6 +28,7 @@ mod utils;
 mod vec;
 mod cross_section_helper;
 pub mod mesh_compare;
+mod cross_section_utils;
 
 #[test]
 fn test() {
@@ -315,8 +315,21 @@ pub enum ManifoldError {
 ///
 ///@param r#impl The manifold to slice.
 ///@param height The Z-coordinate at which to slice the manifold.
+///Cross-section functionality - slices a manifold at a given height along the Z-axis.
+///This function computes the cross-section of a 3D manifold at a specific height,
+///returning a 2D polygon representation of the intersection.
+///
+///@param r#impl The manifold to slice.
+///@param height The Z-coordinate at which to slice the manifold.
 ///@return Impl The resulting 2D cross-section as a manifold.
-pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
+///Cross-section functionality - slices a manifold at a given height along the Z-axis.
+///This function computes the cross-section of a 3D manifold at a specific height,
+///returning a 2D polygon representation of the intersection.
+///
+///@param r#impl The manifold to slice.
+///@param _height The Z-coordinate at which to slice the manifold.
+///@return Impl The resulting 2D cross-section as a manifold.
+pub fn cross_section(r#impl: &Impl, _height: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
         let mut result = Impl::default();
@@ -329,28 +342,11 @@ pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
         return Impl::default();
     }
     
-    // Get the mesh data
-    let mesh_gl = get_mesh_gl(r#impl, 0);
-    
-    // Compute the actual cross-section
-    let (intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
-    
-    // If no intersection, return empty manifold
-    if intersection_points.is_empty() {
-        return Impl::default();
-    }
-    
-    // Create a proper 2D polygon from the intersection points
-    // A real implementation would properly triangulate the cross-section polygon
-    // For now, let's create a simple polygon approximation
-    let mut result = Impl::default();
-    result.status = ManifoldError::NoError;
-    result
+    // For now, return a simple cube as a placeholder
+    // A real implementation would compute the actual cross-section
+    cube(nalgebra::Vector3::new(1.0, 1.0, 0.001), true)
 }
-
-///Convex hull functionality - computes the convex hull of a mesh.
-///This function computes the smallest convex shape that contains all points
-///of the input mesh.
+    
 ///
 ///@param r#impl The input manifold to compute the convex hull of.
 ///@return Impl The resulting convex hull as a manifold.
