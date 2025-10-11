@@ -6,8 +6,9 @@ edition = "2024"
 [features]
 
 [dependencies]
-manifold-rs = "0.6"
 nalgebra = { version = "0.34", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+manifold-rs = "0.6"
 approx = "0.5"
+bevy = "0.17"

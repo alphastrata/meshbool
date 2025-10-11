@@ -6,7 +6,6 @@
 //! a specified tolerance.
 
 use crate::{get_mesh_gl, Impl};
-use manifold_rs::Manifold;
 
 /// Default tolerance for mesh comparison
 const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangulation strategies
@@ -24,7 +23,7 @@ const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangu
 /// # Returns
 /// * `true` if meshes are approximately equal within tolerance
 /// * `false` otherwise
-pub fn approx_eq_meshes(our_mesh: &Impl, their_mesh: &Manifold, tolerance: Option<f64>) -> bool {
+pub fn approx_eq_meshes(our_mesh: &Impl, their_mesh: &manifold_rs::Manifold, tolerance: Option<f64>) -> bool {
     let tolerance = tolerance.unwrap_or(DEFAULT_TOLERANCE);
     
     // Get mesh data from both implementations
@@ -82,13 +81,12 @@ macro_rules! approx_eq {
 #[cfg(test)]
 mod tests {
     use crate::{cube, get_mesh_gl, translate};
-    use manifold_rs::Manifold;
     use nalgebra::Vector3;
     
     #[test]
     fn test_cube_approx_eq() {
         let our_cube = cube(Vector3::new(2.0, 2.0, 2.0), true);
-        let their_cube = Manifold::cube(2.0, 2.0, 2.0);
+        let their_cube = manifold_rs::Manifold::cube(2.0, 2.0, 2.0);
         
         let result = approx_eq!(&our_cube, &their_cube);
         assert!(result, "Basic cube mesh should be approximately equal");
@@ -111,7 +109,7 @@ mod tests {
         let our_cube = cube(Vector3::new(2.0, 2.0, 2.0), true);
         let translated_our_cube = translate(&our_cube, nalgebra::Point3::new(1.0, 1.0, 1.0));
         
-        let their_cube = Manifold::cube(2.0, 2.0, 2.0);
+        let their_cube = manifold_rs::Manifold::cube(2.0, 2.0, 2.0);
         let translated_their_cube = their_cube.translate(1.0, 1.0, 1.0);
         
         let result = approx_eq!(&translated_our_cube, &translated_their_cube);
@@ -126,8 +124,8 @@ mod tests {
         let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
         let our_union = &our_cube1 + &our_cube2;
         
-        let their_cube1 = Manifold::cube(2.0, 2.0, 2.0);
-        let their_cube2 = Manifold::cube(1.0, 1.0, 1.0);
+        let their_cube1 = manifold_rs::Manifold::cube(2.0, 2.0, 2.0);
+        let their_cube2 = manifold_rs::Manifold::cube(1.0, 1.0, 1.0);
         let their_union = their_cube1.union(&their_cube2);
         
         let result = approx_eq!(&our_union, &their_union);
@@ -145,8 +143,8 @@ mod tests {
         let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
         let our_intersection = &our_cube1 ^ &our_cube2;
         
-        let their_cube1 = Manifold::cube(2.0, 2.0, 2.0);
-        let their_cube2 = Manifold::cube(1.0, 1.0, 1.0);
+        let their_cube1 = manifold_rs::Manifold::cube(2.0, 2.0, 2.0);
+        let their_cube2 = manifold_rs::Manifold::cube(1.0, 1.0, 1.0);
         let their_intersection = their_cube1.intersection(&their_cube2);
         
         let result = approx_eq!(&our_intersection, &their_intersection);
@@ -164,8 +162,8 @@ mod tests {
         let our_cube2 = cube(Vector3::new(1.0, 1.0, 1.0), true);
         let our_difference = &our_cube1 - &our_cube2;
         
-        let their_cube1 = Manifold::cube(2.0, 2.0, 2.0);
-        let their_cube2 = Manifold::cube(1.0, 1.0, 1.0);
+        let their_cube1 = manifold_rs::Manifold::cube(2.0, 2.0, 2.0);
+        let their_cube2 = manifold_rs::Manifold::cube(1.0, 1.0, 1.0);
         let their_difference = their_cube1.difference(&their_cube2);
         
         // Use a higher tolerance for difference operations which can vary more significantly
