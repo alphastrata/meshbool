@@ -44,10 +44,19 @@ fn test_complex_difference_operations() {
 }
 
 #[test]
-#[should_panic]
 fn test_boolean_with_invalid_mesh() {
-    // This will be implemented when we add the actual functionality
-    unimplemented!("Complex boolean operations with invalid meshes");
+    // This test verifies that complex boolean operations with invalid meshes
+    // properly handle error conditions
+    
+    // Create an invalid mesh by setting an invalid status
+    let mut invalid_mesh = meshbool::Impl::default();
+    invalid_mesh.status = meshbool::ManifoldError::InvalidConstruction;
+    
+    let valid_cube = cube(Vector3::new(2.0, 2.0, 2.0), true);
+    
+    // Attempting operations with invalid meshes should result in proper error handling
+    let result = &invalid_mesh + &valid_cube;
+    assert_eq!(result.status, meshbool::ManifoldError::InvalidConstruction);
 }
 
 #[test]

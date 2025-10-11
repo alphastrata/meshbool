@@ -50,7 +50,7 @@ pub struct Impl {
     pub(crate) epsilon: f64,
     pub(crate) tolerance: f64,
     pub(crate) num_prop: i32,
-    pub(crate) status: ManifoldError,
+    pub status: ManifoldError,
     pub(crate) vert_pos: Vec<Point3<f64>>,
     pub(crate) halfedge: Vec<Halfedge>,
     pub(crate) properties: Vec<f64>,
