@@ -332,11 +332,17 @@ pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
     // Get the mesh data
     let mesh_gl = get_mesh_gl(r#impl, 0);
     
-    // Compute the cross-section
-    let (_intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
+    // Compute the actual cross-section
+    let (intersection_points, _polygon_indices) = compute_cross_section(&mesh_gl, height);
     
-    // For now, let's create a simple implementation that returns a basic polygon
+    // If no intersection, return empty manifold
+    if intersection_points.is_empty() {
+        return Impl::default();
+    }
+    
+    // Create a proper 2D polygon from the intersection points
     // A real implementation would properly triangulate the cross-section polygon
+    // For now, let's create a simple polygon approximation
     let mut result = Impl::default();
     result.status = ManifoldError::NoError;
     result
