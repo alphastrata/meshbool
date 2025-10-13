@@ -327,9 +327,9 @@ pub enum ManifoldError {
 ///returning a 2D polygon representation of the intersection.
 ///
 ///@param r#impl The manifold to slice.
-///@param _height The Z-coordinate at which to slice the manifold.
+///@param height The Z-coordinate at which to slice the manifold.
 ///@return Impl The resulting 2D cross-section as a manifold.
-pub fn cross_section(r#impl: &Impl, _height: f64) -> Impl {
+pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
         let mut result = Impl::default();
@@ -342,9 +342,22 @@ pub fn cross_section(r#impl: &Impl, _height: f64) -> Impl {
         return Impl::default();
     }
     
-    // For now, return a simple cube as a placeholder
-    // A real implementation would compute the actual cross-section
-    cube(nalgebra::Vector3::new(1.0, 1.0, 0.001), true)
+    // Convert to MeshGL and compute cross-section
+    let mesh_gl = get_mesh_gl(r#impl, 0);
+    let (intersection_points, _polygon_indices) = crate::cross_section_helper::compute_cross_section(&mesh_gl, height);
+    
+    // If no intersections were found, return an empty manifold
+    if intersection_points.is_empty() {
+        return Impl::default();
+    }
+    
+    // For now, let's use a simple approach - just sort the points and return a 2D mesh
+    // A complete implementation would properly process the polygon_indices to create the 2D polygon
+    let sorted_points = crate::cross_section_utils::sort_intersection_points(&intersection_points);
+    let triangles = crate::cross_section_utils::triangulate_polygon(&sorted_points);
+    
+    // Create the 2D cross-section mesh
+    crate::cross_section_utils::create_2d_mesh(&sorted_points, &triangles)
 }
     
 ///
@@ -363,11 +376,63 @@ pub fn hull(r#impl: &Impl) -> Impl {
         return Impl::default();
     }
     
-    // For now, let's create a simple implementation that returns a basic hull
-    // A full implementation would compute the actual convex hull using algorithms like QuickHull
-    let mut result = Impl::default();
-    result.status = ManifoldError::NoError;
-    result
+    // Extract vertices from the mesh
+    let mesh_gl = get_mesh_gl(r#impl, 0);
+    let num_verts = mesh_gl.vert_properties.len() / mesh_gl.num_prop as usize;
+    let mut vertices = Vec::with_capacity(num_verts);
+    
+    for i in 0..num_verts {
+        let offset = i * mesh_gl.num_prop as usize;
+        let x = mesh_gl.vert_properties[offset] as f64;
+        let y = mesh_gl.vert_properties[offset + 1] as f64;
+        let z = mesh_gl.vert_properties[offset + 2] as f64;
+        vertices.push(nalgebra::Point3::new(x, y, z));
+    }
+    
+    // If we have fewer than 4 points, we can't make a 3D hull
+    if vertices.len() < 4 {
+        // Return the original shape if we have fewer points
+        return r#impl.clone();
+    }
+    
+    // For now, implement a basic convex hull approach
+    // This is a simplified approach - a full implementation would use QuickHull or similar algorithm
+    // For demonstration, let's create a bounding box as a simple hull
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut min_z = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    let mut max_z = f64::NEG_INFINITY;
+    
+    for vertex in &vertices {
+        min_x = min_x.min(vertex.x);
+        min_y = min_y.min(vertex.y);
+        min_z = min_z.min(vertex.z);
+        max_x = max_x.max(vertex.x);
+        max_y = max_y.max(vertex.y);
+        max_z = max_z.max(vertex.z);
+    }
+    
+    // Create a cube that bounds all points
+    let size = nalgebra::Vector3::new(
+        (max_x - min_x).abs(),
+        (max_y - min_y).abs(),
+        (max_z - min_z).abs()
+    );
+    
+    // Create a cube at the center of the bounding box
+    let center = nalgebra::Point3::new(
+        (min_x + max_x) / 2.0,
+        (min_y + max_y) / 2.0,
+        (min_z + max_z) / 2.0
+    );
+    
+    // Create cube and translate to center
+    let mut cube = cube(size, true);
+    cube = translate(&cube, center);
+    
+    cube
 }
 
 ///Signed Distance Field functionality - creates SDF from a mesh.
@@ -375,9 +440,9 @@ pub fn hull(r#impl: &Impl) -> Impl {
 ///for various geometric operations and analysis.
 ///
 ///@param r#impl The input manifold to create the SDF from.
-///@param _tolerance The tolerance for the SDF computation.
+///@param tolerance The tolerance for the SDF computation.
 ///@return Impl The resulting SDF as a manifold.
-pub fn sdf(r#impl: &Impl, _tolerance: f64) -> Impl {
+pub fn sdf(r#impl: &Impl, tolerance: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
         let mut result = Impl::default();
@@ -390,10 +455,14 @@ pub fn sdf(r#impl: &Impl, _tolerance: f64) -> Impl {
         return Impl::default();
     }
     
-    // For now, let's create a simple implementation that returns a basic SDF
-    // A full implementation would compute the actual signed distance field
-    let mut result = Impl::default();
-    result.status = ManifoldError::NoError;
+    // For a basic implementation, return the original mesh as an SDF
+    // A full implementation would create a distance field representation
+    // For now we simply return the mesh with potential tolerance adjustments
+    let mut result = r#impl.clone();
+    
+    // Apply the tolerance value to the result
+    result.tolerance = tolerance.max(r#impl.tolerance);
+    
     result
 }
 
@@ -401,28 +470,30 @@ pub fn sdf(r#impl: &Impl, _tolerance: f64) -> Impl {
 ///This function applies smoothing to a mesh using normal-based interpolation.
 ///
 ///@param r#impl The input manifold to smooth.
-///@param _tolerance The tolerance for the smoothing operation.
+///@param tolerance The tolerance for the smoothing operation.
 ///@return Impl The resulting smoothed manifold.
-pub fn smooth(r#impl: &Impl, _tolerance: f64) -> Impl {
-    // For now, we'll create a simple implementation that returns a basic smoothed mesh
-    // In a full implementation, this would apply actual smoothing algorithms
-    let mut result = Impl::default();
-    
+pub fn smooth(r#impl: &Impl, tolerance: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return result;
+        return Impl::default();
     }
     
-    // For now, just return the original mesh as a placeholder
-    // A real implementation would apply smoothing using algorithms like Laplacian smoothing
-    result = r#impl.clone();
-    result.status = ManifoldError::NoError;
+    // For now, return the original mesh
+    // A full implementation would apply smoothing algorithms like:
+    // - Laplacian smoothing: averaging vertex positions with neighbors
+    // - Taubin smoothing: alternating shrink and inflate steps
+    // - Curvature-based smoothing: using geometric properties
+    
+    // For a basic implementation, we'll return the original mesh with tolerance applied
+    let mut result = r#impl.clone();
+    result.tolerance = tolerance.max(r#impl.tolerance);
     result
 }
 

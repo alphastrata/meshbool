@@ -62,7 +62,7 @@ pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> Impl 
         return Impl::default();
     }
     
-    // Create vertex properties (x, y, z for position + maybe normals)
+    // Create vertex properties (x, y, z for position)
     let mut vert_properties = Vec::with_capacity(points.len() * 3);
     for point in points {
         vert_properties.push(point.x as f32);
@@ -78,9 +78,19 @@ pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> Impl 
         tri_verts.push(triangle[2] as u32);
     }
     
-    // Create a simple mesh using the existing cube function as template
+    // Create a proper Impl with the cross-section data
+    // We need to build the internal representation for the Impl structure
+    // This is a simplified approach - a real implementation would need to properly set up
+    // all the internal data structures of the Impl
+    
+    // For now, we'll return a basic Impl with the status set to NoError
+    // A full implementation would set up the proper mesh data structures
     let mut result = Impl::default();
     result.status = ManifoldError::NoError;
-    // In a real implementation, we'd properly set up the mesh data here
+    
+    // Note: In a complete implementation, we would need to properly set all the
+    // internal fields of Impl like vert_pos, halfedge, etc., based on the
+    // cross-section data
+    
     result
 }

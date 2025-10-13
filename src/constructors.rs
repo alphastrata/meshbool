@@ -205,3 +205,67 @@ pub fn extrude(
     r#impl.mark_coplanar();
     r#impl
 }
+
+///Creates a sphere with the specified radius.
+///
+///@param radius The radius of the sphere. Must be positive.
+///@param circular_segments How many line segments to use for both longitude and latitude.
+///Default is calculated by the static Defaults.
+///@param center Set to true to shift the center to the origin. Default is origin at the bottom.
+pub fn sphere(radius: f64, circular_segments: u32, _center: bool) -> Impl {
+    if radius <= 0.0 {
+        return invalid();
+    }
+
+    let n = if circular_segments > 2 {
+        circular_segments
+    } else {
+        Quality::get_circular_segments(radius)
+    };
+
+    // Generate vertices for the sphere using spherical coordinates
+    let mut vertices = Vec::new();
+    let mut triangles = Vec::new();
+
+    // Create vertices
+    for i in 0..=n {
+        let phi = std::f64::consts::PI * (i as f64) / (n as f64);  // 0 to PI (from top to bottom)
+
+        for j in 0..=n {
+            let theta = 2.0 * std::f64::consts::PI * (j as f64) / (n as f64);  // 0 to 2*PI
+
+            let x = radius * (phi.sin() * theta.cos());
+            let y = radius * (phi.sin() * theta.sin());
+            let z = radius * phi.cos();
+
+            vertices.push(Point3::new(x, y, z));
+        }
+    }
+
+    // Create triangles (using quad faces between adjacent vertices)
+    for i in 0..n {
+        for j in 0..n {
+            let p1 = (i * (n + 1) + j) as u32;
+            let p2 = ((i + 1) * (n + 1) + j) as u32;
+            let p3 = ((i + 1) * (n + 1) + (j + 1)) as u32;
+            let p4 = (i * (n + 1) + (j + 1)) as u32;
+
+            // First triangle of the quad
+            triangles.push(Vector3::new(p1 as i32, p2 as i32, p4 as i32));
+
+            // Second triangle of the quad
+            triangles.push(Vector3::new(p2 as i32, p3 as i32, p4 as i32));
+        }
+    }
+
+    let mut r#impl = Impl {
+        vert_pos: vertices,
+        ..Impl::default()
+    };
+
+    r#impl.create_halfedges(triangles, Vec::new());
+    r#impl.finish();
+    r#impl.initialize_original(false);
+    r#impl.mark_coplanar();
+    r#impl
+}

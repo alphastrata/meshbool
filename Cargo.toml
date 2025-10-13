@@ -6,6 +6,8 @@ edition = "2024"
 [features]
 
 [dependencies]
+bevy_asset = "0.17.2"
+bevy_mesh = "0.17.2"
 nalgebra = { version = "0.34", default-features = false, features = ["std"] }
 
 [dev-dependencies]
