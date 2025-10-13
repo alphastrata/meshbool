@@ -150,20 +150,38 @@ fn setup_scene(
     println!("✓ Created base shape: {} triangles", base_shape.num_tri());
     println!("✓ Created operator shape: {} triangles", operator_shape.num_tri());
     
-    // Spawn base shape
+    // Create materials for the three shapes
+    let lhs_material = materials.add(Color::srgb(0.7, 0.7, 0.8));  // Light gray for base shape
+    let rhs_material = materials.add(Color::srgb(0.1, 0.8, 0.1)); // Green for operator shape
+    let output_material = materials.add(Color::srgb(0.8, 0.5, 0.2)); // Orange for result
+
+    // Spawn LHS (left-hand side) shape - the "victim"
     commands.spawn((
-        Name::new("Base Shape (STEP Simulation)"),
+        Name::new("LHS Shape (Victim)"),
         Mesh3d(base_mesh_handle),
-        MeshMaterial3d(materials.add(Color::srgb(0.7, 0.7, 0.8))), // Light gray
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        MeshMaterial3d(lhs_material.clone()),
+        Transform::from_xyz(-4.0, 0.0, 0.0), // Positioned on the left
     ));
     
-    // Spawn operator shape
+    // Spawn RHS (right-hand side) shape - the "operator" 
     commands.spawn((
-        Name::new("Operator Shape (Cylinder)"),
+        Name::new("RHS Shape (Operator)"),
         Mesh3d(operator_mesh_handle),
-        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.8, 0.1))), // Green
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        MeshMaterial3d(rhs_material.clone()),
+        Transform::from_xyz(4.0, 0.0, 0.0), // Positioned on the right
+    ));
+    
+    // Create and spawn the output shape (result of the operation) in the center
+    let output_shape = create_step_like_shape();
+    let output_mesh_gl = get_mesh_gl(&output_shape, 0);
+    let output_bevy_mesh = meshgl_to_bevy_mesh(&output_mesh_gl);
+    let output_mesh_handle = meshes.add(output_bevy_mesh);
+    
+    commands.spawn((
+        Name::new("Output Shape (Result)"),
+        Mesh3d(output_mesh_handle),
+        MeshMaterial3d(output_material),
+        Transform::from_xyz(0.0, 0.0, 0.0), // Positioned in the center
     ));
     
     // Add better lighting
@@ -200,10 +218,10 @@ fn setup_scene(
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::PI / 4.0)),
     ));
     
-    // Add camera
+    // Add camera - position to see all three shapes (LHS, Output, RHS) in a line
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, 8.0, 12.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
     
     // Initialize demo state
@@ -293,15 +311,15 @@ fn update_operation_result(
     _materials: &mut ResMut<Assets<StandardMaterial>>,
     query: &mut Query<(&mut Mesh3d, &Name)>,
 ) {
-    // Create base shape (simulating STEP file loading)
+    // Create base shape (LHS - the "victim")
     let base_shape = create_step_like_shape();
     
-    // Create operator shape
+    // Create operator shape (RHS - the "operator") 
     let operator_shape = cylinder(2.0, 1.0, 1.0, 32, true);
     
     // Perform the selected operation
     let result_shape = match state.current_operation {
-        OperationType::ViewOriginal => base_shape.clone(),
+        OperationType::ViewOriginal => base_shape.clone(), // Just show the original base shape
         OperationType::BooleanUnion => &base_shape + &operator_shape,
         OperationType::BooleanIntersection => &base_shape ^ &operator_shape,
         OperationType::BooleanDifference => &base_shape - &operator_shape,
@@ -321,9 +339,9 @@ fn update_operation_result(
     let result_bevy_mesh = meshgl_to_bevy_mesh(&result_mesh_gl);
     let result_mesh_handle = meshes.add(result_bevy_mesh);
     
-    // Update the result mesh in the scene
+    // Update only the output/result mesh in the center
     for (mut mesh_handle, name) in query.iter_mut() {
-        if name.as_str() == "Base Shape (STEP Simulation)" {
+        if name.as_str() == "Output Shape (Result)" {
             *mesh_handle = Mesh3d(result_mesh_handle.clone());
         }
     }
