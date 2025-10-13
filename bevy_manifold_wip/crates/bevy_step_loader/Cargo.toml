@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 bevy = { workspace = true }
 step = { workspace = true }
-triangulate = { workspace = true }
+# triangulate = { workspace = true }
 anyhow = "1.0"
 
 [dependencies.opencascade]
