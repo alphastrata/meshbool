@@ -6,11 +6,11 @@ edition = "2024"
 [features]
 
 [dependencies]
-bevy_asset = "0.17.2"
+bevy = "0.17.2"
+nalgebra = { version = "0.34.1", default-features = false, features = ["std"] }
+bevy_step_loader = { path = "crates" }
 bevy_mesh = "0.17.2"
-nalgebra = { version = "0.34", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-manifold-rs = "0.6"
-approx = "0.5"
-bevy = "0.17.2"
+manifold-rs = "0.6.2"
+approx = "0.5.1"

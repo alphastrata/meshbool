@@ -1,4 +1,4 @@
-use crate::common::{OrderedF64, Rect};
+'''use crate::common::{OrderedF64, Rect};
 use crate::tree2d::{build_2d_tree, query_2d_tree};
 use crate::utils::{K_PRECISION, ccw};
 use crate::vec::InsertSorted;
@@ -34,7 +34,7 @@ pub struct SafeVert {
 
 impl SafeVert {
     /// Create a new safe wrapper around an unsafe Vert
-    pub fn new(vert: *const crate::polygon::Vert, polygon: *const [crate::polygon::Vert]) -> Self {
+    pub fn new(vert: *const crate.polygon::Vert, polygon: *const [crate::polygon::Vert]) -> Self {
         Self { vert, polygon }
     }
 
@@ -1056,3 +1056,64 @@ pub fn is_convex_safe(polys: &PolygonsIdx, epsilon: f64) -> bool {
     // Delegate to the original unsafe implementation for now, but with a safe interface
     crate::polygon::is_convex(polys, epsilon)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nalgebra::Point2;
+
+    fn create_poly(points: &[(f64, f64)]) -> SimplePolygonIdx {
+        points
+            .iter()
+            .enumerate()
+            .map(|(i, (x, y))| PolyVert {
+                pos: Point2::new(*x, *y),
+                idx: i as i32,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_is_convex() {
+        let convex_poly = create_poly(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]);
+        assert!(is_convex(&vec![convex_poly], 1e-9));
+
+        let concave_poly = create_poly(&[(0.0, 0.0), (1.0, 0.0), (0.5, 0.5), (1.0, 1.0), (0.0, 1.0)]);
+        assert!(!is_convex(&vec![concave_poly], 1e-9));
+    }
+
+    #[test]
+    fn test_triangulate_convex() {
+        let convex_poly = create_poly(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]);
+        let triangles = triangulate_convex(&vec![convex_poly]);
+        assert_eq!(triangles.len(), 2);
+        assert_eq!(triangles[0], Vector3::new(0, 1, 3));
+        assert_eq!(triangles[1], Vector3::new(1, 2, 3));
+    }
+
+    #[test]
+    fn test_ear_clip_simple() {
+        let poly = create_poly(&[(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]);
+        let ear_clip = EarClip::new(&vec![poly], 1e-9);
+        let triangles = ear_clip.triangulate();
+        assert_eq!(triangles.len(), 2);
+    }
+
+    #[test]
+    fn test_ear_clip_concave() {
+        let poly = create_poly(&[(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (1.0, 1.0), (0.0, 2.0)]);
+        let ear_clip = EarClip::new(&vec![poly], 1e-9);
+        let triangles = ear_clip.triangulate();
+        assert_eq!(triangles.len(), 3);
+    }
+
+    #[test]
+    fn test_ear_clip_with_hole() {
+        let outer = create_poly(&[(0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0)]);
+        let hole = create_poly(&[(1.0, 1.0), (1.0, 4.0), (4.0, 4.0), (4.0, 1.0)]);
+        let ear_clip = EarClip::new(&vec![outer, hole], 1e-9);
+        let triangles = ear_clip.triangulate();
+        assert_eq!(triangles.len(), 8);
+    }
+}
+''
