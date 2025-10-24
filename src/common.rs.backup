@@ -186,39 +186,35 @@ impl Quality {
 	}
 }
 
-/// A trait for safe conversions between integer types that may involve truncation
-/// This replaces C++-style implicit conversions with explicit, safe alternatives
-pub trait SafeFrom<T: Copy> {
-    fn safe_from(other: T) -> Self;
+//disgusting cursed reimplementation of c++ implicit number type coercion
+pub trait LossyFrom<T: Copy> {
+	fn lossy_from(other: T) -> Self;
 }
 
-/// A trait for safe conversions to other types that may involve truncation
-pub trait SafeInto<T: Copy> {
-    fn safe_into(self) -> T;
+pub trait LossyInto<T: Copy> {
+	fn lossy_into(self) -> T;
 }
 
-impl<T, U> SafeInto<U> for T
+impl<T, U> LossyInto<U> for T
 where
-    T: Copy,
-    U: Copy + SafeFrom<T>,
+	T: Copy,
+	U: Copy + LossyFrom<T>,
 {
-    fn safe_into(self) -> U {
-        U::safe_from(self)
-    }
+	fn lossy_into(self) -> U {
+		U::lossy_from(self)
+	}
 }
 
-impl SafeFrom<i32> for usize {
-    fn safe_from(other: i32) -> Self {
-        // This is safe in practice for our use cases where indices are non-negative
-        // and within reasonable bounds for mesh operations
-        other as usize
-    }
+impl LossyFrom<i32> for usize {
+	fn lossy_from(other: i32) -> Self {
+		other as usize
+	}
 }
 
-impl SafeFrom<usize> for usize {
-    fn safe_from(other: usize) -> Self {
-        other
-    }
+impl LossyFrom<usize> for usize {
+	fn lossy_from(other: usize) -> Self {
+		other
+	}
 }
 
 pub struct OrderedF64(pub f64);
