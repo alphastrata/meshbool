@@ -1,4 +1,4 @@
-use crate::common::LossyInto;
+use crate::common::SafeInto;
 use crate::parallel::gather;
 use crate::vec::vec_uninit;
 use nalgebra::{Matrix3, Matrix3x4, Matrix4, Point2};
@@ -47,7 +47,7 @@ pub const fn prev3_i32(i: i32) -> i32 {
 pub fn permute<IO, Map>(in_out: &mut Vec<IO>, new2old: &[Map])
 where
     IO: Copy,
-    Map: Copy + LossyInto<usize>,
+    Map: Copy + SafeInto<usize>,
 {
     let mut tmp = unsafe { vec_uninit(new2old.len()) };
     mem::swap(&mut tmp, in_out);
