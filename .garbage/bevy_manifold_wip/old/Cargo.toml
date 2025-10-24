@@ -1,0 +1,22 @@
+[package]
+name = "manifold-testing"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bevy = "0.14.2"
+bevy_editor_cam = "0.4"
+manifold-rs = "0.6.2"
+bevy_mod_picking = { version = "0.20.0", default-features = false, features = [
+    "backend_raycast",
+] }
+log = "0.4"
+env_logger = "0.11"
+
+step = { git = "https://github.com/alphastrata/foxtrot.git", branch = "modernise", package = "step", features = [
+    "rayon",
+] }
+triangulate = { git = "https://github.com/alphastrata/foxtrot.git", branch = "modernise", package = "triangulate", features = [
+    "rayon",
+    "wgpu",
+] }

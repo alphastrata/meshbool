@@ -11,22 +11,22 @@ use nalgebra::{Matrix2, Matrix3x4, Point2, Point3, Vector3};
 ///@param size The X, Y, and Z dimensions of the box.
 ///@param center Set to true to shift the center to the origin.
 pub fn cube(size: Vector3<f64>, center: bool) -> Impl {
-	if size.x < 0.0 || size.y < 0.0 || size.z < 0.0 || size.magnitude_squared() == 0.0 {
-		return invalid();
-	}
+    if size.x < 0.0 || size.y < 0.0 || size.z < 0.0 || size.magnitude_squared() == 0.0 {
+        return invalid();
+    }
 
-	let m = Matrix3x4::from_columns(&[
-		Vector3::new(size.x, 0.0, 0.0),
-		Vector3::new(0.0, size.y, 0.0),
-		Vector3::new(0.0, 0.0, size.z),
-		if center {
-			-size / 2.0
-		} else {
-			Vector3::zeros()
-		},
-	]);
+    let m = Matrix3x4::from_columns(&[
+        Vector3::new(size.x, 0.0, 0.0),
+        Vector3::new(0.0, size.y, 0.0),
+        Vector3::new(0.0, 0.0, size.z),
+        if center {
+            -size / 2.0
+        } else {
+            Vector3::zeros()
+        },
+    ]);
 
-	Impl::from_shape(Shape::Cube, m)
+    Impl::from_shape(Shape::Cube, m)
 }
 
 ///A convenience constructor for the common case of extruding a circle. Can also
@@ -41,44 +41,44 @@ pub fn cube(size: Vector3<f64>, center: bool) -> Impl {
 ///@param center Set to true to shift the center to the origin. Default is
 ///origin at the bottom.
 pub fn cylinder(
-	height: f64,
-	radius_low: f64,
-	radius_high: f64,
-	circular_segments: u32,
-	center: bool,
+    height: f64,
+    radius_low: f64,
+    radius_high: f64,
+    circular_segments: u32,
+    center: bool,
 ) -> Impl {
-	if height <= 0.0 || radius_low <= 0.0 {
-		return invalid();
-	}
+    if height <= 0.0 || radius_low <= 0.0 {
+        return invalid();
+    }
 
-	let scale = if radius_high >= 0.0 {
-		radius_high / radius_low
-	} else {
-		1.0
-	};
-	let radius = radius_low.max(radius_high);
-	let n = if circular_segments > 2 {
-		circular_segments
-	} else {
-		Quality::get_circular_segments(radius)
-	};
+    let scale = if radius_high >= 0.0 {
+        radius_high / radius_low
+    } else {
+        1.0
+    };
+    let radius = radius_low.max(radius_high);
+    let n = if circular_segments > 2 {
+        circular_segments
+    } else {
+        Quality::get_circular_segments(radius)
+    };
 
-	let mut circle: SimplePolygon = vec![Point2::default(); n as usize];
-	let d_phi = 360.0 / (n as f64);
-	for i in 0..n {
-		circle[i as usize] = Point2::<f64>::new(
-			radius_low * (d_phi * i as f64).to_radians().cos(),
-			radius_low * (d_phi * i as f64).to_radians().sin(),
-		);
-	}
+    let mut circle: SimplePolygon = vec![Point2::default(); n as usize];
+    let d_phi = 360.0 / (n as f64);
+    for i in 0..n {
+        circle[i as usize] = Point2::<f64>::new(
+            radius_low * (d_phi * i as f64).to_radians().cos(),
+            radius_low * (d_phi * i as f64).to_radians().sin(),
+        );
+    }
 
-	let cylinder = extrude(&vec![circle], height, 0, 0.0, Point2::new(scale, scale));
+    let cylinder = extrude(&vec![circle], height, 0, 0.0, Point2::new(scale, scale));
 
-	if center {
-		as_original(&translate(&cylinder, Point3::new(0.0, 0.0, -height / 2.0)))
-	} else {
-		cylinder
-	}
+    if center {
+        as_original(&translate(&cylinder, Point3::new(0.0, 0.0, -height / 2.0)))
+    } else {
+        cylinder
+    }
 }
 
 ///Constructs a manifold from a set of polygons by extruding them along the
@@ -99,109 +99,173 @@ pub fn cylinder(
 ///Note that scale is applied after twist.
 ///Default {1, 1}.
 pub fn extrude(
-	cross_section: &Polygons,
-	height: f64,
-	mut n_divisions: u32,
-	twist_degrees: f64,
-	mut scale_top: Point2<f64>,
+    cross_section: &Polygons,
+    height: f64,
+    mut n_divisions: u32,
+    twist_degrees: f64,
+    mut scale_top: Point2<f64>,
 ) -> Impl {
-	if cross_section.len() == 0 || height <= 0.0 {
-		return invalid();
-	}
+    if cross_section.len() == 0 || height <= 0.0 {
+        return invalid();
+    }
 
-	scale_top = scale_top.sup(&Point2::new(0.0, 0.0));
+    scale_top = scale_top.sup(&Point2::new(0.0, 0.0));
 
-	let mut vert_pos = Vec::new();
-	n_divisions += 1;
-	let mut tri_verts: Vec<Vector3<i32>> = Vec::new();
-	let mut n_cross_section = 0;
-	let is_cone = scale_top.x == 0.0 && scale_top.y == 0.0;
-	let mut idx = 0;
-	let mut polygons_indexed: PolygonsIdx = Vec::new();
-	for poly in cross_section {
-		n_cross_section += poly.len();
-		let mut simple_indexed: SimplePolygonIdx = Vec::new();
-		for poly_vert in poly {
-			vert_pos.push(Point3::new(poly_vert.x, poly_vert.y, 0.0));
-			simple_indexed.push(PolyVert {
-				pos: *poly_vert,
-				idx,
-			});
-			idx += 1;
-		}
+    let mut vert_pos = Vec::new();
+    n_divisions += 1;
+    let mut tri_verts: Vec<Vector3<i32>> = Vec::new();
+    let mut n_cross_section = 0;
+    let is_cone = scale_top.x == 0.0 && scale_top.y == 0.0;
+    let mut idx = 0;
+    let mut polygons_indexed: PolygonsIdx = Vec::new();
+    for poly in cross_section {
+        n_cross_section += poly.len();
+        let mut simple_indexed: SimplePolygonIdx = Vec::new();
+        for poly_vert in poly {
+            vert_pos.push(Point3::new(poly_vert.x, poly_vert.y, 0.0));
+            simple_indexed.push(PolyVert {
+                pos: *poly_vert,
+                idx,
+            });
+            idx += 1;
+        }
 
-		polygons_indexed.push(simple_indexed);
-	}
+        polygons_indexed.push(simple_indexed);
+    }
 
-	for i in 1..(n_divisions + 1) {
-		let alpha = (i as f64) / (n_divisions as f64);
-		let phi = alpha * twist_degrees;
-		let scale = Point2::new(1.0, 1.0).lerp(&scale_top, alpha);
-		let rotation = Matrix2::new(
-			phi.to_radians().cos(),
-			-phi.to_radians().sin(),
-			phi.to_radians().sin(),
-			phi.to_radians().cos(),
-		);
-		let transform = Matrix2::new(scale.x, 0.0, 0.0, scale.y) * rotation;
-		let mut j = 0;
-		let mut idx = 0;
-		for poly in cross_section {
-			for vert in 0..poly.len() {
-				let offset = idx + n_cross_section * i as usize;
-				let this_vert = vert + offset;
-				let last_vert = (if vert == 0 { poly.len() } else { vert }) - 1 + offset;
-				if i == n_divisions && is_cone {
-					tri_verts.push(Vector3::new(
-						(n_cross_section * (i as usize) + j) as i32,
-						(last_vert - n_cross_section) as i32,
-						(this_vert - n_cross_section) as i32,
-					));
-				} else {
-					let pos = transform * poly[vert];
-					vert_pos.push(Point3::new(pos.x, pos.y, height * alpha));
-					tri_verts.push(Vector3::new(
-						this_vert as i32,
-						last_vert as i32,
-						(this_vert - n_cross_section) as i32,
-					));
-					tri_verts.push(Vector3::new(
-						last_vert as i32,
-						(last_vert - n_cross_section) as i32,
-						(this_vert - n_cross_section) as i32,
-					));
-				}
-			}
+    for i in 1..(n_divisions + 1) {
+        let alpha = (i as f64) / (n_divisions as f64);
+        let phi = alpha * twist_degrees;
+        let scale = Point2::new(1.0, 1.0).lerp(&scale_top, alpha);
+        let rotation = Matrix2::new(
+            phi.to_radians().cos(),
+            -phi.to_radians().sin(),
+            phi.to_radians().sin(),
+            phi.to_radians().cos(),
+        );
+        let transform = Matrix2::new(scale.x, 0.0, 0.0, scale.y) * rotation;
+        let mut j = 0;
+        let mut idx = 0;
+        for poly in cross_section {
+            for vert in 0..poly.len() {
+                let offset = idx + n_cross_section * i as usize;
+                let this_vert = vert + offset;
+                let last_vert = (if vert == 0 { poly.len() } else { vert }) - 1 + offset;
+                if i == n_divisions && is_cone {
+                    tri_verts.push(Vector3::new(
+                        (n_cross_section * (i as usize) + j) as i32,
+                        (last_vert - n_cross_section) as i32,
+                        (this_vert - n_cross_section) as i32,
+                    ));
+                } else {
+                    let pos = transform * poly[vert];
+                    vert_pos.push(Point3::new(pos.x, pos.y, height * alpha));
+                    tri_verts.push(Vector3::new(
+                        this_vert as i32,
+                        last_vert as i32,
+                        (this_vert - n_cross_section) as i32,
+                    ));
+                    tri_verts.push(Vector3::new(
+                        last_vert as i32,
+                        (last_vert - n_cross_section) as i32,
+                        (this_vert - n_cross_section) as i32,
+                    ));
+                }
+            }
 
-			j += 1;
-			idx += poly.len();
-		}
-	}
+            j += 1;
+            idx += poly.len();
+        }
+    }
 
-	if is_cone {
-		for _ in 0..cross_section.len()
-		// Duplicate vertex for Genus
-		{
-			vert_pos.push(Point3::new(0.0, 0.0, height));
-		}
-	}
+    if is_cone {
+        for _ in 0..cross_section.len()
+        // Duplicate vertex for Genus
+        {
+            vert_pos.push(Point3::new(0.0, 0.0, height));
+        }
+    }
 
-	let top = triangulate_idx(&polygons_indexed, -1.0, true);
-	for tri in &top {
-		tri_verts.push(Vector3::new(tri[0], tri[2], tri[1]));
-		if !is_cone {
-			tri_verts.push(tri.add_scalar((n_cross_section as i32) * (n_divisions as i32)));
-		}
-	}
+    let top = triangulate_idx(&polygons_indexed, -1.0, true);
+    for tri in &top {
+        tri_verts.push(Vector3::new(tri[0], tri[2], tri[1]));
+        if !is_cone {
+            tri_verts.push(tri.add_scalar((n_cross_section as i32) * (n_divisions as i32)));
+        }
+    }
 
-	let mut r#impl = Impl {
-		vert_pos,
-		..Impl::default()
-	};
+    let mut r#impl = Impl {
+        vert_pos,
+        ..Impl::default()
+    };
 
-	r#impl.create_halfedges(tri_verts, Vec::new());
-	r#impl.finish();
-	r#impl.initialize_original(false);
-	r#impl.mark_coplanar();
-	r#impl
+    r#impl.create_halfedges(tri_verts, Vec::new());
+    r#impl.finish();
+    r#impl.initialize_original(false);
+    r#impl.mark_coplanar();
+    r#impl
+}
+
+///Creates a sphere with the specified radius.
+///
+///@param radius The radius of the sphere. Must be positive.
+///@param circular_segments How many line segments to use for both longitude and latitude.
+///Default is calculated by the static Defaults.
+///@param center Set to true to shift the center to the origin. Default is origin at the bottom.
+pub fn sphere(radius: f64, circular_segments: u32, _center: bool) -> Impl {
+    if radius <= 0.0 {
+        return invalid();
+    }
+
+    let n = if circular_segments > 2 {
+        circular_segments
+    } else {
+        Quality::get_circular_segments(radius)
+    };
+
+    // Generate vertices for the sphere using spherical coordinates
+    let mut vertices = Vec::new();
+    let mut triangles = Vec::new();
+
+    // Create vertices
+    for i in 0..=n {
+        let phi = std::f64::consts::PI * (i as f64) / (n as f64);  // 0 to PI (from top to bottom)
+
+        for j in 0..=n {
+            let theta = 2.0 * std::f64::consts::PI * (j as f64) / (n as f64);  // 0 to 2*PI
+
+            let x = radius * (phi.sin() * theta.cos());
+            let y = radius * (phi.sin() * theta.sin());
+            let z = radius * phi.cos();
+
+            vertices.push(Point3::new(x, y, z));
+        }
+    }
+
+    // Create triangles (using quad faces between adjacent vertices)
+    for i in 0..n {
+        for j in 0..n {
+            let p1 = (i * (n + 1) + j) as u32;
+            let p2 = ((i + 1) * (n + 1) + j) as u32;
+            let p3 = ((i + 1) * (n + 1) + (j + 1)) as u32;
+            let p4 = (i * (n + 1) + (j + 1)) as u32;
+
+            // First triangle of the quad
+            triangles.push(Vector3::new(p1 as i32, p2 as i32, p4 as i32));
+
+            // Second triangle of the quad
+            triangles.push(Vector3::new(p2 as i32, p3 as i32, p4 as i32));
+        }
+    }
+
+    let mut r#impl = Impl {
+        vert_pos: vertices,
+        ..Impl::default()
+    };
+
+    r#impl.create_halfedges(triangles, Vec::new());
+    r#impl.finish();
+    r#impl.initialize_original(false);
+    r#impl.mark_coplanar();
+    r#impl
 }
