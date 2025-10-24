@@ -8,12 +8,12 @@ pub type Polygons = Vec<SimplePolygon>;
 //struct was originally named "Box", causing name conflict with the built in rust type
 ///Axis-aligned 3D box, primarily for bounding.
 #[derive(Clone, Copy, Debug)]
-pub struct AABB {
+pub struct Aabb {
     pub min: Point3<f64>,
     pub max: Point3<f64>,
 }
 
-impl Default for AABB {
+impl Default for Aabb {
     ///Default constructor is an infinite box that contains all space.
     fn default() -> Self {
         Self {
@@ -23,7 +23,7 @@ impl Default for AABB {
     }
 }
 
-impl AABB {
+impl Aabb {
     ///Creates a box that contains the two given points.
     pub fn new(p1: Point3<f64>, p2: Point3<f64>) -> Self {
         Self {
@@ -81,9 +81,9 @@ pub trait AABBOverlap<T> {
     fn does_overlap(&self, other: &T) -> bool;
 }
 
-impl AABBOverlap<AABB> for AABB {
+impl AABBOverlap<Aabb> for Aabb {
     ///Does this box overlap the one given (including equality)?
-    fn does_overlap(&self, other: &AABB) -> bool {
+    fn does_overlap(&self, other: &Aabb) -> bool {
         self.min.x <= other.max.x
             && self.min.y <= other.max.y
             && self.min.z <= other.max.z
@@ -93,7 +93,7 @@ impl AABBOverlap<AABB> for AABB {
     }
 }
 
-impl AABBOverlap<Point3<f64>> for AABB {
+impl AABBOverlap<Point3<f64>> for Aabb {
     ///Does the given point project within the XY extent of this box
     ///(including equality)?
     fn does_overlap(&self, p: &Point3<f64>) -> bool {
@@ -180,9 +180,6 @@ impl Quality {
     ///@param radius For a given radius of circle, determine how many default
     ///segments there will be.
     pub fn get_circular_segments(radius: f64) -> u32 {
-        if Self::CIRCULAR_SEGMENTS > 0 {
-            return Self::CIRCULAR_SEGMENTS;
-        }
         let n_seg_a = (360.0 / Self::CIRCULAR_ANGLE) as u32;
         let n_seg_l = (2.0 * radius * f64::consts::PI / Self::CIRCULAR_EDGE_LENGTH) as u32;
         let mut n_seg = n_seg_a.min(n_seg_l) + 3;
@@ -262,18 +259,18 @@ pub fn sun_acos(x: f64) -> f64 {
      * is preserved.
      * ====================================================
      */
-    const PIO2_HI: f64 = 1.57079632679489655800e+00; /* 0x3FF921FB, 0x54442D18 */
-    const PIO2_LO: f64 = 6.12323399573676603587e-17; /* 0x3C91A626, 0x33145C07 */
-    const P_S0: f64 = 1.66666666666666657415e-01; /* 0x3FC55555, 0x55555555 */
-    const P_S1: f64 = -3.25565818622400915405e-01; /* 0xBFD4D612, 0x03EB6F7D */
-    const P_S2: f64 = 2.01212532134862925881e-01; /* 0x3FC9C155, 0x0E884455 */
-    const P_S3: f64 = -4.00555345006794114027e-02; /* 0xBFA48228, 0xB5688F3B */
-    const P_S4: f64 = 7.91534994289814532176e-04; /* 0x3F49EFE0, 0x7501B288 */
-    const P_S5: f64 = 3.47933107596021167570e-05; /* 0x3F023DE1, 0x0DFDF709 */
-    const Q_S1: f64 = -2.40339491173441421878e+00; /* 0xC0033A27, 0x1C8A2D4B */
-    const Q_S2: f64 = 2.02094576023350569471e+00; /* 0x40002AE5, 0x9C598AC8 */
-    const Q_S3: f64 = -6.88283971605453293030e-01; /* 0xBFE6066C, 0x1B8D0159 */
-    const Q_S4: f64 = 7.70381505559019352791e-02; /* 0x3FB3B8C5, 0xB12E9282 */
+    const PIO2_HI: f64 = f64::consts::FRAC_PI_2; /* 0x3FF921FB, 0x54442D18 */
+    const PIO2_LO: f64 = 6.123_233_995_736_766e-17; /* 0x3C91A626, 0x33145C07 */
+    const P_S0: f64 = 1.666_666_666_666_666_6e-1; /* 0x3FC55555, 0x55555555 */
+    const P_S1: f64 = -3.255_658_186_224_009e-1; /* 0xBFD4D612, 0x03EB6F7D */
+    const P_S2: f64 = 2.012_125_321_348_629_3e-1; /* 0x3FC9C155, 0x0E884455 */
+    const P_S3: f64 = -4.005_553_450_067_941e-2; /* 0xBFA48228, 0xB5688F3B */
+    const P_S4: f64 = 7.915_349_942_898_145e-4; /* 0x3F49EFE0, 0x7501B288 */
+    const P_S5: f64 = 3.479_331_075_960_212e-5; /* 0x3F023DE1, 0x0DFDF709 */
+    const Q_S1: f64 = -2.403_394_911_734_414; /* 0xC0033A27, 0x1C8A2D4B */
+    const Q_S2: f64 = 2.020_945_760_233_505_7; /* 0x40002AE5, 0x9C598AC8 */
+    const Q_S3: f64 = -6.882_839_716_054_533e-1; /* 0xBFE6066C, 0x1B8D0159 */
+    const Q_S4: f64 = 7.703_815_055_590_194e-2; /* 0x3FB3B8C5, 0xB12E9282 */
     let r = |z| {
         let p = z * (P_S0 + z * (P_S1 + z * (P_S2 + z * (P_S3 + z * (P_S4 + z * P_S5)))));
         let q = 1.0 + z * (Q_S1 + z * (Q_S2 + z * (Q_S3 + z * Q_S4)));

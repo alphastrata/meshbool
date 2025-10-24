@@ -1,6 +1,6 @@
 use crate::ManifoldError;
 use crate::collider::Collider;
-use crate::common::{AABB, sun_acos};
+use crate::common::{Aabb, sun_acos};
 use crate::mesh_fixes::{FlipTris, transform_normal};
 use crate::parallel::exclusive_scan_in_place;
 use crate::shared::{Halfedge, TriRef, max_epsilon, next_halfedge, normal_transform};
@@ -46,7 +46,7 @@ pub(crate) static MESH_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 ///consistent meaning between different inputs.
 #[derive(Clone, Debug)]
 pub struct Impl {
-    pub(crate) bbox: AABB,
+    pub(crate) bbox: Aabb,
     pub(crate) epsilon: f64,
     pub(crate) tolerance: f64,
     pub(crate) num_prop: i32,
@@ -609,7 +609,7 @@ impl Impl {
     }
 
     pub(crate) fn make_empty(&mut self, status: ManifoldError) {
-        self.bbox = AABB::default();
+        self.bbox = Aabb::default();
         self.vert_pos = Vec::default();
         self.halfedge = Vec::default();
         self.vert_normal = Vec::default();
@@ -863,7 +863,7 @@ impl Impl {
 impl Default for Impl {
     fn default() -> Self {
         Self {
-            bbox: AABB::default(),
+            bbox: Aabb::default(),
             epsilon: -1.0,
             tolerance: -1.0,
             num_prop: 0,

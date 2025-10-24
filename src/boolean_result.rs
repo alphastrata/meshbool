@@ -1,6 +1,6 @@
 use crate::ManifoldError;
 use crate::boolean3::Boolean3;
-use crate::common::{AABB, OpType, OrderedF64};
+use crate::common::{Aabb, OpType, OrderedF64};
 use crate::r#impl::{Impl, MESH_ID_COUNTER};
 use crate::parallel::{
     copy_if, exclusive_scan_transformed, gather, gather_transformed, inclusive_scan,
@@ -13,6 +13,47 @@ use std::collections::BTreeMap;
 use std::mem;
 use std::ops::Deref;
 use std::sync::atomic::Ordering;
+
+#[derive(Debug)]
+struct SizeOutputParams<'a> {
+    in_p: &'a Impl,
+    in_q: &'a Impl,
+    i03: &'a [i32],
+    i30: &'a [i32],
+    i12: Vec<i32>,
+    i21: Vec<i32>,
+    p1q2: &'a [[i32; 2]],
+    p2q1: &'a [[i32; 2]],
+    invert_q: bool,
+}
+
+#[derive(Debug)]
+struct AddNewEdgeVertsParams<'a> {
+    p1q2: &'a [[i32; 2]],
+    i12: &'a [i32],
+    v12_r: &'a [i32],
+    halfedge_p: &'a [Halfedge],
+    forward: bool,
+    offset: usize,
+}
+
+#[derive(Debug)]
+struct AppendPartialEdgesParams<'a> {
+    in_p: &'a Impl,
+    i03: &'a [i32],
+    v_p2r: &'a [i32],
+    face_p2r: &'a [i32],
+    forward: bool,
+}
+
+#[derive(Debug)]
+struct AppendWholeEdgesParams {
+    whole_halfedge_p: Vec<bool>,
+    i03: Vec<i32>,
+    v_p2r: Vec<i32>,
+    face_p2r: Vec<i32>,
+    forward: bool,
+}
 
 fn abs_sum(a: i32, b: i32) -> i32 {
     a.abs() + b.abs()
@@ -89,61 +130,53 @@ impl<'a, const INVERTED: bool, const ATOMIC: bool> CountNewVerts<'a, INVERTED, A
 
 fn size_output(
     out_r: &mut Impl,
-    in_p: &Impl,
-    in_q: &Impl,
-    i03: &[i32],
-    i30: &[i32],
-    i12: Vec<i32>,
-    i21: Vec<i32>,
-    p1q2: &[[i32; 2]],
-    p2q1: &[[i32; 2]],
-    invert_q: bool,
+    params: SizeOutputParams,
 ) -> (Vec<i32>, Vec<i32>) {
-    let mut sides_per_face_pq = vec![0; in_p.num_tri() + in_q.num_tri()];
+    let mut sides_per_face_pq = vec![0; params.in_p.num_tri() + params.in_q.num_tri()];
     // note: numFaceR <= facePQ2R.size() = sidesPerFacePQ.size() + 1
 
-    let (mut sides_per_face_p, mut sides_per_face_q) =
-        sides_per_face_pq.split_at_mut(in_p.num_tri());
+    let (sides_per_face_p, sides_per_face_q) =
+        sides_per_face_pq.split_at_mut(params.in_p.num_tri());
 
-    for i in 0..in_p.halfedge.len() {
+    for i in 0..params.in_p.halfedge.len() {
         CountVerts::<false> {
-            halfedges: &in_p.halfedge,
-            count: &mut sides_per_face_p,
-            inclusion: i03,
+            halfedges: &params.in_p.halfedge,
+            count: sides_per_face_p,
+            inclusion: params.i03,
         }
         .call(i);
     }
-    for i in 0..in_q.halfedge.len() {
+    for i in 0..params.in_q.halfedge.len() {
         CountVerts::<false> {
-            halfedges: &in_q.halfedge,
-            count: &mut sides_per_face_q,
-            inclusion: i30,
+            halfedges: &params.in_q.halfedge,
+            count: sides_per_face_q,
+            inclusion: params.i30,
         }
         .call(i);
     }
 
-    for i in 0..i12.len() {
+    for i in 0..params.i12.len() {
         CountNewVerts::<false, false> {
-            count_p: &mut sides_per_face_p,
-            count_q: &mut sides_per_face_q,
-            i12: &i12,
-            pq: p1q2,
-            halfedges: &in_p.halfedge,
+            count_p: sides_per_face_p,
+            count_q: sides_per_face_q,
+            i12: &params.i12,
+            pq: params.p1q2,
+            halfedges: &params.in_p.halfedge,
         }
         .call(i);
     }
-    for i in 0..i21.len() {
+    for i in 0..params.i21.len() {
         CountNewVerts::<true, false> {
-            count_p: &mut sides_per_face_q,
-            count_q: &mut sides_per_face_p,
-            i12: &i21,
-            pq: p2q1,
-            halfedges: &in_q.halfedge,
+            count_p: sides_per_face_q,
+            count_q: sides_per_face_p,
+            i12: &params.i21,
+            pq: params.p2q1,
+            halfedges: &params.in_q.halfedge,
         }
         .call(i);
     }
 
-    let mut face_pq2r: Vec<i32> = vec![0; in_p.num_tri() + in_q.num_tri() + 1];
+    let mut face_pq2r: Vec<i32> = vec![0; params.in_p.num_tri() + params.in_q.num_tri() + 1];
     inclusive_scan(
         sides_per_face_pq.iter().map(|&x| if x > 0 { 1 } else { 0 }),
         &mut face_pq2r[1..],
@@ -156,7 +189,7 @@ fn size_output(
 
     let mut tmp_buffer = unsafe { vec_uninit(out_r.face_normal.len()) };
 
-    let face_ids = (0..in_p.face_normal.len()).map(|i| {
+    let face_ids = (0..params.in_p.face_normal.len()).map(|i| {
         if sides_per_face_pq[i] > 0 {
             i
         } else {
@@ -168,12 +201,12 @@ fn size_output(
 
     gather(
         &tmp_buffer[..next],
-        &in_p.face_normal,
+        &params.in_p.face_normal,
         &mut out_r.face_normal,
     );
 
-    let face_ids_q = (0..in_q.face_normal.len()).map(|i| {
-        if sides_per_face_pq[i + in_p.face_normal.len()] > 0 {
+    let face_ids_q = (0..params.in_q.face_normal.len()).map(|i| {
+        if sides_per_face_pq[i + params.in_p.face_normal.len()] > 0 {
             i
         } else {
             usize::MAX
@@ -182,17 +215,17 @@ fn size_output(
 
     let end = next + copy_if(face_ids_q, &mut tmp_buffer[next..], &|v| v != usize::MAX);
 
-    if invert_q {
+    if params.invert_q {
         gather_transformed(
             &tmp_buffer[next..end],
-            &in_q.face_normal,
+            &params.in_q.face_normal,
             &mut out_r.face_normal[next..],
             |normal: Vector3<f64>| -normal,
         );
     } else {
         gather(
             &tmp_buffer[next..end],
-            &in_q.face_normal,
+            &params.in_q.face_normal,
             &mut out_r.face_normal[next..],
         );
     }
@@ -217,32 +250,27 @@ fn add_new_edge_verts(
     // we need concurrent_map because we will be adding things concurrently
     edges_p: &mut BTreeMap<i32, Vec<EdgePos>>,
     edges_new: &mut BTreeMap<(i32, i32), Vec<EdgePos>>,
-    p1q2: &[[i32; 2]],
-    i12: &[i32],
-    v12_r: &[i32],
-    halfedge_p: &[Halfedge],
-    forward: bool,
-    offset: usize,
+    params: AddNewEdgeVertsParams,
 ) {
     // For each edge of P that intersects a face of Q (p1q2), add this vertex to
     // P's corresponding edge vector and to the two new edges, which are
     // intersections between the face of Q and the two faces of P attached to the
     // edge. The direction and duplicity are given by i12, while v12R remaps to
     // the output vert index. When forward is false, all is reversed.
-    for i in 0..p1q2.len() {
-        let edge_p = p1q2[i][if forward { 0 } else { 1 }];
-        let face_q = p1q2[i][if forward { 1 } else { 0 }];
-        let vert = v12_r[i];
-        let inclusion = i12[i];
+    for i in 0..params.p1q2.len() {
+        let edge_p = params.p1q2[i][if params.forward { 0 } else { 1 }];
+        let face_q = params.p1q2[i][if params.forward { 1 } else { 0 }];
+        let vert = params.v12_r[i];
+        let inclusion = params.i12[i];
 
-        let halfedge = halfedge_p[edge_p as usize];
+        let halfedge = params.halfedge_p[edge_p as usize];
         let mut key_right = (halfedge.paired_halfedge / 3, face_q);
-        if !forward {
+        if !params.forward {
             mem::swap(&mut key_right.0, &mut key_right.1);
         }
 
         let mut key_left = (edge_p / 3, face_q);
-        if !forward {
+        if !params.forward {
             mem::swap(&mut key_left.0, &mut key_left.1);
         }
 
@@ -253,11 +281,11 @@ fn add_new_edge_verts(
             let tuple = match k {
                 0 => (stable_direction, edges_p.entry(edge_p).or_default()),
                 1 => (
-                    stable_direction ^ !forward,
+                    stable_direction ^ !params.forward,
                     edges_new.entry(key_right).or_default(),
                 ), //revert if not forward
                 2 => (
-                    stable_direction ^ forward,
+                    stable_direction ^ params.forward,
                     edges_new.entry(key_left).or_default(),
                 ),
                 _ => unreachable!(),
@@ -267,7 +295,7 @@ fn add_new_edge_verts(
                 tuple.1.push(EdgePos {
                     edge_pos: 0.0,
                     vert: vert + j,
-                    collision_id: (i + offset) as i32,
+                    collision_id: (i + params.offset) as i32,
                     is_start: tuple.0,
                 });
             }
@@ -284,7 +312,7 @@ fn pair_up(edge_pos: &mut [EdgePos]) -> Vec<Halfedge> {
     // the input and output are not geometrically valid and this algorithm becomes
     // a heuristic.
     debug_assert!(
-        edge_pos.len() % 2 == 0,
+        edge_pos.len().is_multiple_of(2),
         "Non-manifold edge! Not an even number of points."
     );
     let n_edges = edge_pos.len() / 2;
@@ -309,11 +337,7 @@ fn append_partial_edges(
     face_ptr_r: &mut [i32],
     mut edges_p: BTreeMap<i32, Vec<EdgePos>>,
     halfedge_ref: &mut [TriRef],
-    in_p: &Impl,
-    i03: &[i32],
-    v_p2r: &[i32],
-    face_p2r: &[i32],
-    forward: bool,
+    params: AppendPartialEdgesParams,
 ) {
     // Each edge in the map is partially retained; for each of these, look up
     // their original verts and include them based on their winding number (i03),
@@ -321,8 +345,8 @@ fn append_partial_edges(
     // projected along the edge vector to pair them up, then distribute these
     // edges to their faces.
     let halfedge_r = &mut out_r.halfedge;
-    let vert_pos_p = &in_p.vert_pos;
-    let halfedge_p = &in_p.halfedge;
+    let vert_pos_p = &params.in_p.vert_pos;
+    let halfedge_p = &params.in_p.halfedge;
 
     for (&edge_p, edge_pos_p) in edges_p.iter_mut() {
         let halfedge = &halfedge_p[edge_p as usize];
@@ -337,12 +361,12 @@ fn append_partial_edges(
             edge.edge_pos = out_r.vert_pos[edge.vert as usize].coords.dot(&edge_vec);
         }
 
-        let mut inclusion = i03[v_start];
+        let mut inclusion = params.i03[v_start];
         let mut edge_pos = EdgePos {
-            edge_pos: out_r.vert_pos[v_p2r[v_start] as usize]
+            edge_pos: out_r.vert_pos[params.v_p2r[v_start] as usize]
                 .coords
                 .dot(&edge_vec),
-            vert: v_p2r[v_start],
+            vert: params.v_p2r[v_start],
             collision_id: i32::MAX,
             is_start: inclusion > 0,
         };
@@ -352,10 +376,10 @@ fn append_partial_edges(
             edge_pos.vert += 1;
         }
 
-        inclusion = i03[v_end];
+        inclusion = params.i03[v_end];
         edge_pos = EdgePos {
-            edge_pos: out_r.vert_pos[v_p2r[v_end] as usize].coords.dot(&edge_vec),
-            vert: v_p2r[v_end],
+            edge_pos: out_r.vert_pos[params.v_p2r[v_end] as usize].coords.dot(&edge_vec),
+            vert: params.v_p2r[v_end],
             collision_id: i32::MAX,
             is_start: inclusion < 0,
         };
@@ -370,21 +394,21 @@ fn append_partial_edges(
 
         // add halfedges to result
         let face_left_p = edge_p / 3;
-        let face_left = face_p2r[face_left_p as usize];
+        let face_left = params.face_p2r[face_left_p as usize];
         let face_right_p = halfedge.paired_halfedge / 3;
-        let face_right = face_p2r[face_right_p as usize];
+        let face_right = params.face_p2r[face_right_p as usize];
         // Negative inclusion means the halfedges are reversed, which means our
         // reference is now to the endVert instead of the startVert, which is one
         // position advanced CCW. This is only valid if this is a retained vert; it
         // will be ignored later if the vert is new.
         let forward_ref = TriRef {
-            mesh_id: if forward { 0 } else { 1 },
+            mesh_id: if params.forward { 0 } else { 1 },
             original_id: -1,
             face_id: face_left_p,
             coplanar_id: -1,
         };
         let backward_ref = TriRef {
-            mesh_id: if forward { 0 } else { 1 },
+            mesh_id: if params.forward { 0 } else { 1 },
             original_id: -1,
             face_id: face_right_p,
             coplanar_id: -1,
@@ -424,7 +448,7 @@ fn append_new_edges(
         let face_q = value.0.1;
         let edge_pos = &mut value.1;
 
-        let mut bbox = AABB::default();
+        let mut bbox = Aabb::default();
         for edge in edge_pos.iter() {
             bbox.union_point(vert_pos_r[edge.vert as usize]);
         }
@@ -485,14 +509,10 @@ fn append_whole_edges(
     face_ptr_r: &mut [i32],
     halfedge_ref: &mut [TriRef],
     in_p: &Impl,
-    whole_halfedge_p: Vec<bool>,
-    i03: Vec<i32>,
-    v_p2r: Vec<i32>,
-    face_p2r: &[i32],
-    forward: bool,
+    params: AppendWholeEdgesParams,
 ) {
     for idx in 0..in_p.halfedge.len() {
-        if !whole_halfedge_p[idx] {
+        if !params.whole_halfedge_p[idx] {
             continue;
         }
         let mut halfedge = in_p.halfedge[idx];
@@ -500,7 +520,7 @@ fn append_whole_edges(
             continue;
         }
 
-        let inclusion = i03[halfedge.start_vert as usize];
+        let inclusion = params.i03[halfedge.start_vert as usize];
         if inclusion == 0 {
             continue;
         }
@@ -510,23 +530,23 @@ fn append_whole_edges(
             mem::swap(&mut halfedge.start_vert, &mut halfedge.end_vert);
         }
 
-        halfedge.start_vert = v_p2r[halfedge.start_vert as usize];
-        halfedge.end_vert = v_p2r[halfedge.end_vert as usize];
+        halfedge.start_vert = params.v_p2r[halfedge.start_vert as usize];
+        halfedge.end_vert = params.v_p2r[halfedge.end_vert as usize];
         let face_left_p = idx / 3;
-        let new_face = face_p2r[face_left_p];
+        let new_face = params.face_p2r[face_left_p];
         let face_right_p = halfedge.paired_halfedge / 3;
-        let face_right = face_p2r[face_right_p as usize];
+        let face_right = params.face_p2r[face_right_p as usize];
         // Negative inclusion means the halfedges are reversed, which means our
         // reference is now to the endVert instead of the startVert, which is one
         // position advanced CCW.
         let forward_ref = TriRef {
-            mesh_id: if forward { 0 } else { 1 },
+            mesh_id: if params.forward { 0 } else { 1 },
             original_id: -1,
             face_id: face_left_p as i32,
             coplanar_id: -1,
         };
         let backward_ref = TriRef {
-            mesh_id: if forward { 0 } else { 1 },
+            mesh_id: if params.forward { 0 } else { 1 },
             original_id: -1,
             face_id: face_right_p,
             coplanar_id: -1,
@@ -840,14 +860,18 @@ impl<'a> Boolean3<'a> {
         let c3 = if op == OpType::Intersect { 1 } else { -1 };
 
         if self.in_p.status != ManifoldError::NoError {
-            let mut r#impl = Impl::default();
-            r#impl.status = self.in_p.status;
+            let r#impl = Impl {
+                status: self.in_p.status,
+                ..Default::default()
+            };
             return r#impl;
         }
 
         if self.in_q.status != ManifoldError::NoError {
-            let mut r#impl = Impl::default();
-            r#impl.status = self.in_q.status;
+            let r#impl = Impl {
+                status: self.in_q.status,
+                ..Default::default()
+            };
             return r#impl;
         }
 
@@ -866,8 +890,10 @@ impl<'a> Boolean3<'a> {
         }
 
         if !self.valid {
-            let mut r#impl = Impl::default();
-            r#impl.status = ManifoldError::ResultTooLarge;
+            let r#impl = Impl {
+                status: ManifoldError::ResultTooLarge,
+                ..Default::default()
+            };
             return r#impl;
         }
 
@@ -887,7 +913,7 @@ impl<'a> Boolean3<'a> {
         num_vert_r = abs_sum(*v_q2r.last().unwrap(), *i30.last().unwrap());
         let n_qv = num_vert_r - n_pv;
 
-        let v12_r = if self.v12.len() == 0 {
+        let v12_r = if self.v12.is_empty() {
             Vec::new()
         } else {
             let v12_r = exclusive_scan_transformed(&i12, num_vert_r, &abs_sum);
@@ -897,7 +923,7 @@ impl<'a> Boolean3<'a> {
 
         //let n12 = num_vert_r - n_pv - n_qv;
 
-        let v21_r = if self.v21.len() == 0 {
+        let v21_r = if self.v21.is_empty() {
             Vec::new()
         } else {
             let v21_r = exclusive_scan_transformed(&i21, num_vert_r, &abs_sum);
@@ -972,34 +998,51 @@ impl<'a> Boolean3<'a> {
         // This key is the face index of <P, Q>
         let mut edges_new: BTreeMap<(i32, i32), Vec<EdgePos>> = BTreeMap::new();
 
+        let params1 = AddNewEdgeVertsParams {
+            p1q2: &self.p1q2,
+            i12: &i12,
+            v12_r: &v12_r,
+            halfedge_p: &self.in_p.halfedge,
+            forward: true,
+            offset: 0,
+        };
         add_new_edge_verts(
             &mut edges_p,
             &mut edges_new,
-            &self.p1q2,
-            &i12,
-            &v12_r,
-            &self.in_p.halfedge,
-            true,
-            0,
+            params1,
         );
+        let params2 = AddNewEdgeVertsParams {
+            p1q2: &self.p2q1,
+            i12: &i21,
+            v12_r: &v21_r,
+            halfedge_p: &self.in_q.halfedge,
+            forward: false,
+            offset: self.p1q2.len(),
+        };
         add_new_edge_verts(
             &mut edges_q,
             &mut edges_new,
-            &self.p2q1,
-            &i21,
-            &v21_r,
-            &self.in_q.halfedge,
-            false,
-            self.p1q2.len(),
+            params2,
         );
 
         drop(v12_r);
         drop(v21_r);
 
         // Level 4
-        let (face_edge, face_pq2r) = size_output(
-            &mut out_r, &self.in_p, &self.in_q, &i03, &i30, i12, i21, &self.p1q2, &self.p2q1,
+        let params = SizeOutputParams {
+            in_p: self.in_p,
+            in_q: self.in_q,
+            i03: &i03,
+            i30: &i30,
+            i12,
+            i21,
+            p1q2: &self.p1q2,
+            p2q1: &self.p2q1,
             invert_q,
+        };
+        let (face_edge, face_pq2r) = size_output(
+            &mut out_r,
+            params,
         );
 
         // This gets incremented for each halfedge that's added to a face so that the
@@ -1012,29 +1055,35 @@ impl<'a> Boolean3<'a> {
         // are triangulated.
         let mut halfedge_ref = unsafe { vec_uninit(2 * out_r.num_edge()) };
 
+        let params1 = AppendPartialEdgesParams {
+            in_p: self.in_p,
+            i03: &i03,
+            v_p2r: &v_p2r,
+            face_p2r: &face_pq2r,
+            forward: true,
+        };
         append_partial_edges(
             &mut out_r,
             &mut whole_halfedge_p,
             &mut face_ptr_r,
             edges_p,
             &mut halfedge_ref,
-            self.in_p,
-            &i03,
-            &v_p2r,
-            &face_pq2r,
-            true,
+            params1,
         );
+        let params2 = AppendPartialEdgesParams {
+            in_p: self.in_q,
+            i03: &i30,
+            v_p2r: &v_q2r,
+            face_p2r: &face_pq2r[self.in_p.num_tri()..],
+            forward: false,
+        };
         append_partial_edges(
             &mut out_r,
             &mut whole_halfedge_q,
             &mut face_ptr_r,
             edges_q,
             &mut halfedge_ref,
-            self.in_q,
-            &i30,
-            &v_q2r,
-            &face_pq2r[self.in_p.num_tri()..],
-            false,
+            params2,
         );
 
         append_new_edges(
@@ -1046,27 +1095,33 @@ impl<'a> Boolean3<'a> {
             self.in_p.num_tri(),
         );
 
-        append_whole_edges(
-            &mut out_r,
-            &mut face_ptr_r,
-            &mut halfedge_ref,
-            &self.in_p,
+        let params1 = AppendWholeEdgesParams {
             whole_halfedge_p,
             i03,
             v_p2r,
-            &face_pq2r[..self.in_p.num_tri()],
-            true,
-        );
+            face_p2r: face_pq2r[..self.in_p.num_tri()].to_vec(),
+            forward: true,
+        };
         append_whole_edges(
             &mut out_r,
             &mut face_ptr_r,
             &mut halfedge_ref,
-            &self.in_q,
-            whole_halfedge_q,
-            i30,
-            v_q2r,
-            &face_pq2r[self.in_p.num_tri()..],
-            false,
+            self.in_p,
+            params1,
+        );
+        let params2 = AppendWholeEdgesParams {
+            whole_halfedge_p: whole_halfedge_q,
+            i03: i30,
+            v_p2r: v_q2r,
+            face_p2r: face_pq2r[self.in_p.num_tri()..].to_vec(),
+            forward: false,
+        };
+        append_whole_edges(
+            &mut out_r,
+            &mut face_ptr_r,
+            &mut halfedge_ref,
+            self.in_q,
+            params2,
         );
 
         drop(face_ptr_r);
@@ -1079,9 +1134,9 @@ impl<'a> Boolean3<'a> {
 
         debug_assert!(out_r.is_manifold(), "triangulated mesh is not manifold!");
 
-        create_properties(&mut out_r, &self.in_p, &self.in_q);
+        create_properties(&mut out_r, self.in_p, self.in_q);
 
-        update_reference(&mut out_r, &self.in_p, &self.in_q, invert_q);
+        update_reference(&mut out_r, self.in_p, self.in_q, invert_q);
 
         out_r.simplify_topology(n_pv + n_qv);
         out_r.remove_unreferenced_verts();

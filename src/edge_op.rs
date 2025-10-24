@@ -235,7 +235,7 @@ impl Impl {
         let se = ShortEdge {
             r#impl: self,
             epsilon,
-            first_new_vert: first_new_vert,
+            first_new_vert,
         };
 
         s.run(nb_edges, se, |myself, i| {
@@ -361,7 +361,7 @@ impl Impl {
                 });
                 self.halfedge.push(Halfedge {
                     start_vert: outside_vert,
-                    end_vert: end_vert,
+                    end_vert,
                     paired_halfedge: -1,
                     prop_vert: self.halfedge[current as usize].prop_vert,
                 });
@@ -385,7 +385,7 @@ impl Impl {
                 outside_vert = self.halfedge[opposite as usize].start_vert;
                 self.halfedge.push(Halfedge {
                     start_vert: new_vert,
-                    end_vert: end_vert,
+                    end_vert,
                     paired_halfedge: -1,
                     prop_vert: end_prop,
                 });

@@ -1,4 +1,4 @@
-use crate::common::{AABB, AABBOverlap};
+use crate::common::{Aabb, AABBOverlap};
 use crate::utils::atomic_add_i32;
 use crate::vec::vec_uninit;
 use nalgebra::{Matrix3x4, Point3, Vector3};
@@ -51,15 +51,13 @@ impl<'a> CreateRadixTree<'a> {
     fn prefix_length_signed(&self, i: i32, j: i32) -> i32 {
         if j < 0 || j >= self.leaf_morton.len() as i32 {
             -1
+        } else if self.leaf_morton[i as usize] == self.leaf_morton[j as usize] {
+            32 + self.prefix_length_unsigned(i as u32, j as u32)
         } else {
-            if self.leaf_morton[i as usize] == self.leaf_morton[j as usize] {
-                32 + self.prefix_length_unsigned(i as u32, j as u32)
-            } else {
-                self.prefix_length_unsigned(
-                    self.leaf_morton[i as usize],
-                    self.leaf_morton[j as usize],
-                )
-            }
+            self.prefix_length_unsigned(
+                self.leaf_morton[i as usize],
+                self.leaf_morton[j as usize],
+            )
         }
     }
 
@@ -150,7 +148,7 @@ where
     RecorderT: Recorder,
 {
     f: &'a F,
-    node_bbox: &'a [AABB],
+    node_bbox: &'a [Aabb],
     internal_children: &'a [(i32, i32)],
     recorder: &'a mut RecorderT,
 }
@@ -160,7 +158,7 @@ where
     F: Fn(i32) -> AABBOverlapT,
     AABBOverlapT: Debug,
     RecorderT: Recorder,
-    AABB: AABBOverlap<AABBOverlapT>,
+    Aabb: AABBOverlap<AABBOverlapT>,
 {
     #[inline]
     fn record_collision(&mut self, node: i32, query_idx: i32) -> bool {
@@ -178,7 +176,7 @@ where
         // stack cannot overflow because radix tree has max depth 30 (Morton code) +
         // 32 (index).
         let mut stack = [0; 64];
-        let mut top = -1;
+        let mut top: i32 = -1;
         // Depth-first search
         let mut node = K_ROOT;
         loop {
@@ -207,7 +205,7 @@ where
 }
 
 struct BuildInternalBoxes<'a> {
-    node_bbox: &'a mut [AABB],
+    node_bbox: &'a mut [Aabb],
     counter: &'a mut [i32],
     node_parent: &'a [i32],
     internal_children: &'a [(i32, i32)],
@@ -239,7 +237,7 @@ const fn spread_bits3(mut v: u32) -> u32 {
     v = 0x0F00F00F & (v.wrapping_mul(0x00000101));
     v = 0xC30C30C3 & (v.wrapping_mul(0x00000011));
     v = 0x49249249 & (v.wrapping_mul(0x00000005));
-    return v;
+    v
 }
 
 pub trait Recorder {
@@ -248,14 +246,14 @@ pub trait Recorder {
 
 #[derive(Clone, Default, Debug)]
 pub struct Collider {
-    node_bbox: Vec<AABB>,
+    node_bbox: Vec<Aabb>,
     node_parent: Vec<i32>,
     // even nodes are leaves, odd nodes are internal, root is 1
     internal_children: Vec<(i32, i32)>,
 }
 
 impl Collider {
-    pub fn new(leaf_bb: &[AABB], leaf_morton: &[u32]) -> Self {
+    pub fn new(leaf_bb: &[Aabb], leaf_morton: &[u32]) -> Self {
         debug_assert!(
             leaf_bb.len() == leaf_morton.len(),
             "vectors must be the same length"
@@ -306,15 +304,15 @@ impl Collider {
         axis_aligned
     }
 
-    pub fn update_boxes(&mut self, leaf_bb: &[AABB]) {
+    pub fn update_boxes(&mut self, leaf_bb: &[Aabb]) {
         debug_assert!(
             leaf_bb.len() == self.num_leaves(),
             "must have the same number of updated boxes as original"
         );
 
         // copy in leaf node Boxes
-        for i in 0..leaf_bb.len() {
-            self.node_bbox[i * 2] = leaf_bb[i];
+        for (i, bb) in leaf_bb.iter().enumerate() {
+            self.node_bbox[i * 2] = *bb;
         }
 
         // create global counters
@@ -349,7 +347,7 @@ impl Collider {
         F: Fn(i32) -> AABBOverlapT,
         AABBOverlapT: Debug,
         RecorderT: Recorder,
-        AABB: AABBOverlap<AABBOverlapT>,
+        Aabb: AABBOverlap<AABBOverlapT>,
     {
         if self.internal_children.is_empty() {
             return;
@@ -365,7 +363,7 @@ impl Collider {
         }
     }
 
-    pub fn morton_code(position: Point3<f64>, bbox: AABB) -> u32 {
+    pub fn morton_code(position: Point3<f64>, bbox: Aabb) -> u32 {
         let mut xyz = (position - bbox.min).component_div(&(bbox.max - bbox.min));
         xyz = Vector3::from_element(1023.0).inf(&Vector3::from_element(0.0).sup(&(1024.0 * xyz)));
         let x = spread_bits3(xyz.x as u32);

@@ -1,6 +1,6 @@
 use crate::ManifoldError;
 use crate::collider::Collider;
-use crate::common::AABB;
+use crate::common::Aabb;
 use crate::r#impl::Impl;
 use crate::parallel::{inclusive_scan, scatter};
 use crate::utils::permute;
@@ -10,7 +10,7 @@ use std::mem;
 
 const K_NO_CODE: u32 = 0xFFFFFFFF;
 
-fn morton_code(position: Point3<f64>, bbox: AABB) -> u32 {
+fn morton_code(position: Point3<f64>, bbox: Aabb) -> u32 {
     // Unreferenced vertices are marked NaN, and this will sort them to the end
     // (the Morton code only uses the first 30 of 32 bits).
     if position.x.is_nan() {
@@ -38,7 +38,7 @@ impl Impl {
         }
 
         self.sort_verts();
-        let mut face_box: Vec<AABB> = Vec::default();
+        let mut face_box: Vec<Aabb> = Vec::default();
         let mut face_morton: Vec<u32> = Vec::default();
         self.get_face_box_morton(&mut face_box, &mut face_morton);
         self.sort_faces(&mut face_box, &mut face_morton);
@@ -151,7 +151,7 @@ impl Impl {
     ///Fills the faceBox and faceMorton input with the bounding boxes and Morton
     ///codes of the faces, respectively. The Morton code is based on the center of
     ///the bounding box.
-    pub(crate) fn get_face_box_morton(&self, face_box: &mut Vec<AABB>, face_morton: &mut Vec<u32>) {
+    pub(crate) fn get_face_box_morton(&self, face_box: &mut Vec<Aabb>, face_morton: &mut Vec<u32>) {
         // faceBox should be initialized
         vec_resize(face_box, self.num_tri());
         unsafe {
@@ -182,7 +182,7 @@ impl Impl {
 
     ///Sorts the faces of this manifold according to their input Morton code. The
     ///bounding box and Morton code arrays are also sorted accordingly.
-    fn sort_faces(&mut self, face_box: &mut Vec<AABB>, face_morton: &mut Vec<u32>) {
+    fn sort_faces(&mut self, face_box: &mut Vec<Aabb>, face_morton: &mut Vec<u32>) {
         let mut face_new2old: Vec<_> = (0..self.num_tri() as i32).collect();
         face_new2old.sort_by_key(|&i| face_morton[i as usize]);
 

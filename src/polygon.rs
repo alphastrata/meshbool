@@ -8,6 +8,17 @@ use std::collections::BTreeMap;
 use std::ops::Range;
 use std::{collections::VecDeque, mem, ptr};
 
+struct CutKeyholeParams<'a> {
+    simples: &'a mut Vec<usize>,
+    triangles: &'a mut Vec<Vector3<i32>>,
+    polygon: &'a mut Vec<Vert>,
+    polygon_range: &'a Range<usize>,
+    outers: &'a Vec<usize>,
+    hole2bbox: &'a BTreeMap<usize, Rect>,
+    epsilon: f64,
+}
+
+
 const K_BEST: f64 = f64::NEG_INFINITY;
 
 ///Polygon vertex.
@@ -153,15 +164,18 @@ impl EarClip {
     ///polygon points in order.
     fn triangulate(mut self) -> Vec<Vector3<i32>> {
         for start in self.holes {
+            let params = CutKeyholeParams {
+                simples: &mut self.simples,
+                triangles: &mut self.triangles,
+                polygon: &mut self.polygon,
+                polygon_range: &self.polygon_range,
+                outers: &self.outers,
+                hole2bbox: &self.hole2bbox,
+                epsilon: self.epsilon,
+            };
             Self::cut_keyhole(
                 start,
-                &mut self.simples,
-                &mut self.triangles,
-                &mut self.polygon,
-                &self.polygon_range,
-                &self.outers,
-                &self.hole2bbox,
-                self.epsilon,
+                params,
             );
         }
 
@@ -416,19 +430,13 @@ impl EarClip {
     ///behind to ensure all valid options are found.
     fn cut_keyhole(
         start: usize,
-        simples: &mut Vec<usize>,
-        triangles: &mut Vec<Vector3<i32>>,
-        polygon: &mut Vec<Vert>,
-        polygon_range: &Range<usize>,
-        outers: &Vec<usize>,
-        hole2bbox: &BTreeMap<usize, Rect>,
-        epsilon: f64,
+        params: CutKeyholeParams,
     ) {
-        let bbox = hole2bbox.get(&start).unwrap();
-        let start_ref = &polygon[start];
-        let on_top = if start_ref.pos.y >= bbox.max.y - epsilon {
+        let bbox = params.hole2bbox.get(&start).unwrap();
+        let start_ref = &params.polygon[start];
+        let on_top = if start_ref.pos.y >= bbox.max.y - params.epsilon {
             1
-        } else if start_ref.pos.y <= bbox.min.y + epsilon {
+        } else if start_ref.pos.y <= bbox.min.y + params.epsilon {
             -1
         } else {
             0
@@ -439,47 +447,47 @@ impl EarClip {
         let mut check_edge = |edge: usize, polygon: &mut Vec<Vert>| {
             let edge = &polygon[edge];
             let start_ref = &polygon[start];
-            let x = edge.interp_y2x(start_ref.pos, on_top, epsilon, polygon);
+            let x = edge.interp_y2x(start_ref.pos, on_top, params.epsilon, polygon);
             if x.is_finite()
-                && start_ref.inside_edge(edge, epsilon, true, polygon)
+                && start_ref.inside_edge(edge, params.epsilon, true, polygon)
                 && (connector.as_ref().map_or(true, |&connector| {
                     ccw(
                         Point2::new(x, start_ref.pos.y),
                         polygon[connector].pos,
                         polygon[connector].right(polygon).pos,
-                        epsilon,
+                        params.epsilon,
                     ) == 1
                         || (if polygon[connector].pos.y < edge.pos.y {
-                            edge.inside_edge(&polygon[connector], epsilon, false, polygon)
+                            edge.inside_edge(&polygon[connector], params.epsilon, false, polygon)
                         } else {
-                            !polygon[connector].inside_edge(edge, epsilon, false, polygon)
+                            !polygon[connector].inside_edge(edge, params.epsilon, false, polygon)
                         })
                 }))
             {
-                connector = Some(edge.ptr2index(polygon_range));
+                connector = Some(edge.ptr2index(params.polygon_range));
             }
         };
 
-        for &first in outers {
-            Self::loop_verts(first, polygon, polygon_range, &mut check_edge);
+        for &first in params.outers.iter() {
+            Self::loop_verts(first, params.polygon, params.polygon_range, &mut check_edge);
         }
 
         if connector.is_none() {
             //hole did not find an outer contour!
-            simples.push(start);
+            params.simples.push(start);
             return;
         }
 
         let connector = Self::find_closer_bridge(
             start,
             connector.unwrap(),
-            polygon,
-            polygon_range,
-            outers,
-            epsilon,
+            params.polygon,
+            params.polygon_range,
+            params.outers,
+            params.epsilon,
         );
 
-        Self::join_polygons(start, connector, polygon, polygon_range, triangles, epsilon);
+        Self::join_polygons(start, connector, params.polygon, params.polygon_range, params.triangles, params.epsilon);
     }
 
     ///This converts the initial guess for the keyhole location into the final one
@@ -745,6 +753,7 @@ impl Vert {
     /// 
     /// # Returns
     /// A mutable reference to the left neighbor vertex
+    #[allow(dead_code)]
     fn left_mut<'a>(&mut self, polygon: &'a mut [Self]) -> &'a mut Self {
         &mut polygon[self.left_idx]
     }
@@ -756,6 +765,7 @@ impl Vert {
     /// 
     /// # Returns
     /// A mutable reference to the right neighbor vertex
+    #[allow(dead_code)]
     fn right_mut<'a>(&mut self, polygon: &'a mut [Self]) -> &'a mut Self {
         &mut polygon[self.right_idx]
     }
@@ -763,6 +773,7 @@ impl Vert {
     //safety: this is only meant for assigning left+right fields, which should
     //only be dereferenced through the accessor methods in order to let the
     //borrow checker do its job
+    #[allow(dead_code)]
     fn index2ptr(index: usize, polygon_range: &Range<usize>) -> *mut Vert {
         assert!(index < polygon_range.len());
         (polygon_range.start + index * mem::size_of::<Vert>()) as *mut Vert

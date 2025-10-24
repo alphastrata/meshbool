@@ -36,9 +36,9 @@ impl<'a> CheckHalfedges<'a> {
 
 impl Impl {
     /**
-    	* Returns true if this manifold is in fact an oriented even manifold and all of
-    	* the data structures are consistent.
-    	*/
+     * Returns true if this manifold is in fact an oriented even manifold and all of
+     * the data structures are consistent.
+     */
     pub(crate) fn is_manifold(&self) -> bool {
         if self.halfedge.len() == 0 {
             return true;

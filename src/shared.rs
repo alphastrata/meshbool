@@ -1,11 +1,11 @@
-use crate::common::AABB;
+use crate::common::Aabb;
 use crate::utils::{K_PRECISION, mat3, next3_usize};
 use core::f64;
 use nalgebra::{Matrix2x3, Matrix3, Matrix3x4, Point3, Vector3};
 use std::ops::MulAssign;
 
 #[inline]
-pub fn max_epsilon(min_epsilon: f64, bbox: &AABB) -> f64 {
+pub fn max_epsilon(min_epsilon: f64, bbox: &Aabb) -> f64 {
     let epsilon = min_epsilon.max(K_PRECISION * bbox.scale());
     if epsilon.is_finite() { epsilon } else { -1.0 }
 }

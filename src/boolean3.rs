@@ -1,5 +1,5 @@
 use crate::collider::Recorder;
-use crate::common::{AABB, AABBOverlap, OpType};
+use crate::common::{Aabb, AABBOverlap, OpType};
 use crate::disjoint_sets::DisjointSets;
 use crate::r#impl::Impl;
 use crate::shared::Halfedge;
@@ -8,6 +8,15 @@ use core::f64;
 use nalgebra::{Point3, Vector2, Vector3, Vector4};
 use std::collections::HashSet;
 use std::mem;
+
+#[derive(Debug)]
+struct Shadow01Params<'a> {
+    vert_pos_p: &'a [Point3<f64>],
+    vert_pos_q: &'a [Point3<f64>],
+    halfedge_q: &'a [Halfedge],
+    expand_p: f64,
+    normal: &'a [Vector3<f64>],
+}
 use std::ops::DerefMut;
 
 // These two functions (interpolate and intersect) are the only places where
@@ -30,7 +39,7 @@ fn interpolate(p_l: Point3<f64>, p_r: Point3<f64>, x: f64) -> Vector2<f64> {
     let mut yz = Vector2::default();
     yz[0] = lambda * d_lr.y + (if use_l { p_l.y } else { p_r.y });
     yz[1] = lambda * d_lr.z + (if use_l { p_l.z } else { p_r.z });
-    return yz;
+    yz
 }
 
 fn intersect(
@@ -56,12 +65,10 @@ fn intersect(
     xyzz.y = lambda * (if use_p { pdy } else { qdy })
         + (if use_l {
             if use_p { p_l.y } else { q_l.y }
-        } else {
-            if use_p { p_r.y } else { q_r.y }
-        });
+        } else if use_p { p_r.y } else { q_r.y });
     xyzz.z = lambda * (p_r.z - p_l.z) + (if use_l { p_l.z } else { p_r.z });
     xyzz.w = lambda * (q_r.z - q_l.z) + (if use_l { q_l.z } else { q_r.z });
-    return xyzz;
+    xyzz
 }
 
 #[inline]
@@ -73,47 +80,41 @@ fn shadows(p: f64, q: f64, dir: f64) -> bool {
 fn shadow01(
     p0: usize,
     q1: usize,
-    vert_pos_p: &[Point3<f64>],
-    vert_pos_q: &[Point3<f64>],
-    halfedge_q: &[Halfedge],
-    expand_p: f64,
-    normal: &[Vector3<f64>],
+    params: &Shadow01Params,
     reverse: bool,
 ) -> (i32, Vector2<f64>) {
-    let q1s: usize = halfedge_q[q1].start_vert as usize;
-    let q1e = halfedge_q[q1].end_vert as usize;
-    let p0x = vert_pos_p[p0].x;
-    let q1sx = vert_pos_q[q1s].x;
-    let q1ex = vert_pos_q[q1e].x;
+    let q1s: usize = params.halfedge_q[q1].start_vert as usize;
+    let q1e = params.halfedge_q[q1].end_vert as usize;
+    let p0x = params.vert_pos_p[p0].x;
+    let q1sx = params.vert_pos_q[q1s].x;
+    let q1ex = params.vert_pos_q[q1e].x;
     let mut s01 = if reverse {
-        shadows(q1sx, p0x, expand_p * normal[q1s].x) as i32
-            - shadows(q1ex, p0x, expand_p * normal[q1e].x) as i32
+        shadows(q1sx, p0x, params.expand_p * params.normal[q1s].x) as i32
+            - shadows(q1ex, p0x, params.expand_p * params.normal[q1e].x) as i32
     } else {
-        shadows(p0x, q1ex, expand_p * normal[p0].x) as i32
-            - shadows(p0x, q1sx, expand_p * normal[p0].x) as i32
+        shadows(p0x, q1ex, params.expand_p * params.normal[p0].x) as i32
+            - shadows(p0x, q1sx, params.expand_p * params.normal[p0].x) as i32
     };
 
     let mut yz01 = Vector2::from_element(f64::NAN);
 
     if s01 != 0 {
-        yz01 = interpolate(vert_pos_q[q1s], vert_pos_q[q1e], vert_pos_p[p0].x);
+        yz01 = interpolate(params.vert_pos_q[q1s], params.vert_pos_q[q1e], params.vert_pos_p[p0].x);
         if reverse {
-            let mut diff = vert_pos_q[q1s] - vert_pos_p[p0];
+            let mut diff = params.vert_pos_q[q1s] - params.vert_pos_p[p0];
             let start2 = diff.magnitude_squared();
-            diff = vert_pos_q[q1e] - vert_pos_p[p0];
+            diff = params.vert_pos_q[q1e] - params.vert_pos_p[p0];
             let end2 = diff.magnitude_squared();
             let dir = if start2 < end2 {
-                normal[q1s].y
+                params.normal[q1s].y
             } else {
-                normal[q1e].y
+                params.normal[q1e].y
             };
-            if !shadows(yz01[0], vert_pos_p[p0].y, expand_p * dir) {
+            if !shadows(yz01[0], params.vert_pos_p[p0].y, params.expand_p * dir) {
                 s01 = 0;
             }
-        } else {
-            if !shadows(vert_pos_p[p0].y, yz01[0], expand_p * normal[p0].y) {
-                s01 = 0;
-            }
+        } else if !shadows(params.vert_pos_p[p0].y, yz01[0], params.expand_p * params.normal[p0].y) {
+            s01 = 0;
         }
     }
 
@@ -147,15 +148,18 @@ impl<'a> Kernel11<'a> {
             self.halfedge_p[p1].end_vert as usize,
         ];
 
-        for i in 0..p0.len() {
+        for (i, _) in p0.iter().enumerate() {
+            let params = Shadow01Params {
+                vert_pos_p: self.vert_pos_p,
+                vert_pos_q: self.vert_pos_q,
+                halfedge_q: self.halfedge_q,
+                expand_p: self.expand_p,
+                normal: self.normal_p,
+            };
             let (s01, yz01) = shadow01(
                 p0[i],
                 q1,
-                self.vert_pos_p,
-                self.vert_pos_q,
-                self.halfedge_q,
-                self.expand_p,
-                self.normal_p,
+                &params,
                 false,
             );
             // If the value is NaN, then these do not overlap.
@@ -175,15 +179,18 @@ impl<'a> Kernel11<'a> {
             self.halfedge_q[q1].end_vert as usize,
         ];
 
-        for i in 0..q0.len() {
+        for (i, _) in q0.iter().enumerate() {
+            let params = Shadow01Params {
+                vert_pos_p: self.vert_pos_q,
+                vert_pos_q: self.vert_pos_p,
+                halfedge_q: self.halfedge_p,
+                expand_p: self.expand_p,
+                normal: self.normal_p,
+            };
             let (s10, yz10) = shadow01(
                 q0[i],
                 p1,
-                self.vert_pos_q,
-                self.vert_pos_p,
-                self.halfedge_p,
-                self.expand_p,
-                self.normal_p,
+                &params,
                 true,
             );
             // If the value is NaN, then these do not overlap.
@@ -270,14 +277,17 @@ impl<'a> Kernel02<'a> {
                 }
             }
 
+            let params = Shadow01Params {
+                vert_pos_p: self.vert_pos_p,
+                vert_pos_q: self.vert_pos_q,
+                halfedge_q: self.halfedge_q,
+                expand_p: self.expand_p,
+                normal: self.vert_normal_p,
+            };
             let syz01 = shadow01(
                 p0,
                 q1_f,
-                self.vert_pos_p,
-                self.vert_pos_q,
-                self.halfedge_q,
-                self.expand_p,
-                self.vert_normal_p,
+                &params,
                 !self.forward,
             );
             let s01 = syz01.0;
@@ -490,12 +500,12 @@ fn intersect12(
     let f = |i| {
         let i = i as usize;
         if a.halfedge[i].is_forward() {
-            AABB::new(
+            Aabb::new(
                 a.vert_pos[a.halfedge[i].start_vert as usize],
                 a.vert_pos[a.halfedge[i].end_vert as usize],
             )
         } else {
-            AABB::default()
+            Aabb::default()
         }
     };
 

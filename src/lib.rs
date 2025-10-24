@@ -246,18 +246,18 @@ pub fn transform(r#impl: &Impl, m: &Matrix3x4<f64>) -> Impl {
     r#impl.transform(&m)
 }
 
-///	The central operation of this library: the Boolean combines two manifolds
-///	into another by calculating their intersections and removing the unused
-///	portions.
-///	[&epsilon;-valid](https://github.com/elalish/manifold/wiki/Manifold-Library#definition-of-%CE%B5-valid)
-///	inputs will produce &epsilon;-valid output. &epsilon;-invalid input may fail
-///	triangulation.
+/// The central operation of this library: the Boolean combines two manifolds
+/// into another by calculating their intersections and removing the unused
+/// portions.
+/// [&epsilon;-valid](https://github.com/elalish/manifold/wiki/Manifold-Library#definition-of-%CE%B5-valid)
+/// inputs will produce &epsilon;-valid output. &epsilon;-invalid input may fail
+/// triangulation.
 ///
-///	These operations are optimized to produce nearly-instant results if either
-///	input is empty or their bounding boxes do not overlap.
+/// These operations are optimized to produce nearly-instant results if either
+/// input is empty or their bounding boxes do not overlap.
 ///
-///	@param second The other Manifold.
-///	@param op The type of operation to perform.
+/// @param second The other Manifold.
+/// @param op The type of operation to perform.
 pub fn boolean(first: &Impl, second: &Impl, op: OpType) -> Impl {
     Boolean3::new(first, second, op).result(op)
 }
