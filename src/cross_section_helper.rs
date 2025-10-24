@@ -93,9 +93,17 @@ fn intersect_edge_with_plane(x0: f64, y0: f64, z0: f64, x1: f64, y1: f64, z1: f6
     
     let t = (height - z0) / z_diff;
     
-    // Check if intersection is within edge bounds (excluding endpoints to avoid duplicates)
-    if t <= 0.0 || t >= 1.0 {
+    // Check if intersection is within edge bounds (including one endpoint to avoid missing intersections)
+    if t < 0.0 || t >= 1.0 {
         return None;
+    }
+    
+    // Special case: if t is exactly 0, we might want to skip it to avoid duplicate points
+    // But for boundary cases, we should include it
+    if t == 0.0 {
+        // For edges that start exactly on the plane, we might want to include them
+        // But this could create duplicate points. Let's be more careful.
+        // Actually, let's include it for now and see if it helps.
     }
     
     // Compute intersection point

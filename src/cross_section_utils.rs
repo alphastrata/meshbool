@@ -1,5 +1,5 @@
 use crate::{Impl, ManifoldError};
-use nalgebra::Point3;
+use nalgebra::{Point3, Vector3};
 
 ///Sort intersection points to form a proper polygon boundary
 pub fn sort_intersection_points(points: &[f32]) -> Vec<Point3<f64>> {
@@ -62,35 +62,33 @@ pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> Impl 
         return Impl::default();
     }
     
-    // Create vertex properties (x, y, z for position)
-    let mut vert_properties = Vec::with_capacity(points.len() * 3);
-    for point in points {
-        vert_properties.push(point.x as f32);
-        vert_properties.push(point.y as f32);
-        vert_properties.push(point.z as f32); // z = 0 for 2D
-    }
+    // Create vertex positions
+    let vert_pos: Vec<Point3<f64>> = points.to_vec();
     
-    // Create triangle vertices
-    let mut tri_verts = Vec::with_capacity(triangles.len() * 3);
+    // Create triangle vertex definitions
+    let mut tri_verts = Vec::with_capacity(triangles.len());
     for triangle in triangles {
-        tri_verts.push(triangle[0] as u32);
-        tri_verts.push(triangle[1] as u32);
-        tri_verts.push(triangle[2] as u32);
+        tri_verts.push(Vector3::new(
+            triangle[0] as i32,
+            triangle[1] as i32,
+            triangle[2] as i32
+        ));
     }
     
-    // Create a proper Impl with the cross-section data
-    // We need to build the internal representation for the Impl structure
-    // This is a simplified approach - a real implementation would need to properly set up
-    // all the internal data structures of the Impl
+    // Create the Impl with the proper mesh data
+    let mut result = Impl {
+        vert_pos,
+        ..Impl::default()
+    };
     
-    // For now, we'll return a basic Impl with the status set to NoError
-    // A full implementation would set up the proper mesh data structures
-    let mut result = Impl::default();
+    // Set up the half-edge data structure
+    result.create_halfedges(tri_verts, Vec::new());
+    
+    // Initialize the mesh properly
+    result.finish();
+    result.initialize_original(false);
+    result.mark_coplanar();
+    
     result.status = ManifoldError::NoError;
-    
-    // Note: In a complete implementation, we would need to properly set all the
-    // internal fields of Impl like vert_pos, halfedge, etc., based on the
-    // cross-section data
-    
     result
 }

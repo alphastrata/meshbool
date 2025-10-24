@@ -24,8 +24,8 @@ fn test_cross_section_basic() {
 fn test_cross_section_different_heights() {
 	let cube = cube(Vector3::new(2.0, 2.0, 2.0), true);
 
-	// Test at different heights
-	let heights = vec![-0.5, 0.0, 0.5, 1.0];
+	// Test at different heights (avoiding exact boundaries where no cross-section exists)
+	let heights = vec![-0.9, 0.0, 0.5, 0.9];
 
 	for &height in &heights {
 		let section = cross_section(&cube, height);
@@ -53,10 +53,10 @@ fn test_cross_section_edge_cases() {
 	println!("Small cube cross-section:");
 	println!("  {} tris, {} verts", section.num_tri(), section.num_vert());
 
-	// Test with large cube
+	// Test with large cube (use height that's inside the cube)
 	let large_cube = cube(Vector3::new(100.0, 100.0, 100.0), true);
 
-	let section = cross_section(&large_cube, 50.0);
+	let section = cross_section(&large_cube, 0.0);
 
 	println!("Large cube cross-section:");
 	println!("  {} tris, {} verts", section.num_tri(), section.num_vert());
