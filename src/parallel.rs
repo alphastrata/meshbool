@@ -1,4 +1,4 @@
-use crate::{common::LossyInto, vec::vec_uninit};
+use crate::{common::SafeInto, vec::vec_uninit};
 use std::ops::{Add, AddAssign};
 
 ///Compute the inclusive prefix sum for the range `[first, last)`
@@ -113,10 +113,10 @@ where
 pub fn scatter<IO, Map>(input: impl Iterator<Item = IO>, map: &[Map], output: &mut [IO])
 where
     IO: Copy,
-    Map: Copy + LossyInto<usize>,
+    Map: Copy + SafeInto<usize>,
 {
     for (i, input) in input.enumerate() {
-        output[map[i].lossy_into()] = input;
+        output[map[i].safe_into()] = input;
     }
 }
 
@@ -129,10 +129,10 @@ where
 pub fn gather<IO, Map>(map: &[Map], input: &[IO], output: &mut [IO])
 where
     IO: Copy,
-    Map: Copy + LossyInto<usize>,
+    Map: Copy + SafeInto<usize>,
 {
     for i in 0..map.len() {
-        output[i] = input[map[i].lossy_into()];
+        output[i] = input[map[i].safe_into()];
     }
 }
 
@@ -149,10 +149,10 @@ pub fn gather_transformed<IO, Map, F>(
     mut transform: F,
 ) where
     IO: Copy,
-    Map: Copy + LossyInto<usize>,
+    Map: Copy + SafeInto<usize>,
     F: FnMut(IO) -> IO,
 {
     for i in 0..map.len() {
-        output[i] = transform(input[map[i].lossy_into()]);
+        output[i] = transform(input[map[i].safe_into()]);
     }
 }
