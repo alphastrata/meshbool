@@ -1,7 +1,8 @@
 use crate::boolean3::Boolean3;
-use crate::meshboolimpl::{MeshBoolImpl, Relation};
+use crate::common::OpType;
+use crate::r#impl::Relation;
 use crate::shared::normal_transform;
-pub use crate::meshboolimpl::MeshBoolImpl as Impl; // For backward compatibility
+pub use r#impl::Impl;
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
@@ -15,7 +16,7 @@ mod constructors;
 mod disjoint_sets;
 mod edge_op;
 mod face_op;
-pub mod meshboolimpl;
+pub mod r#impl;
 mod mesh_fixes;
 mod parallel;
 mod polygon;
@@ -165,8 +166,8 @@ pub struct MeshGL {
     pub tolerance: f32,
 }
 
-fn invalid() -> MeshBoolImpl {
-    let mut r#impl = MeshBoolImpl::default();
+fn invalid() -> Impl {
+    let mut r#impl = Impl::default();
     r#impl.status = ManifoldError::InvalidConstruction;
     r#impl
 }
@@ -176,9 +177,9 @@ fn invalid() -> MeshBoolImpl {
 ///- these don't get joined at boundaries where originalID changes, so the
 ///reset may allow triangles of flat faces to be further collapsed with
 ///Simplify().
-pub fn as_original(old_impl: &MeshBoolImpl) -> MeshBoolImpl {
+pub fn as_original(old_impl: &Impl) -> Impl {
     if old_impl.status != ManifoldError::NoError {
-        let mut new_impl = MeshBoolImpl::default();
+        let mut new_impl = Impl::default();
         new_impl.status = old_impl.status;
         return new_impl;
     }
@@ -194,7 +195,7 @@ pub fn as_original(old_impl: &MeshBoolImpl) -> MeshBoolImpl {
 ///combined and applied lazily.
 ///
 ///@param v The vector to add to every vertex.
-pub fn translate(r#impl: &MeshBoolImpl, v: Point3<f64>) -> MeshBoolImpl {
+pub fn translate(r#impl: &Impl, v: Point3<f64>) -> Impl {
     let mut transform = Matrix3x4::<f64>::identity();
     *transform.column_mut(3) = *v;
     r#impl.transform(&transform)
@@ -204,7 +205,7 @@ pub fn translate(r#impl: &MeshBoolImpl, v: Point3<f64>) -> MeshBoolImpl {
 ///combined and applied lazily.
 ///
 ///@param v The vector to multiply every vertex by per component.
-pub fn scale(r#impl: &MeshBoolImpl, v: Vector3<f64>) -> MeshBoolImpl {
+pub fn scale(r#impl: &Impl, v: Vector3<f64>) -> Impl {
     let mut transform = Matrix3x4::<f64>::identity();
     for i in 0..3 {
         transform[(i, i)] = v[i];
@@ -223,7 +224,7 @@ pub fn scale(r#impl: &MeshBoolImpl, v: Vector3<f64>) -> MeshBoolImpl {
 ///@param xDegrees First rotation, degrees about the X-axis.
 ///@param yDegrees Second rotation, degrees about the Y-axis.
 ///@param zDegrees Third rotation, degrees about the Z-axis.
-pub fn rotate(r#impl: &MeshBoolImpl, x_degrees: f64, y_degrees: f64, z_degrees: f64) -> MeshBoolImpl {
+pub fn rotate(r#impl: &Impl, x_degrees: f64, y_degrees: f64, z_degrees: f64) -> Impl {
     let transform = UnitQuaternion::from_euler_angles(
         x_degrees.to_radians(),
         y_degrees.to_radians(),
@@ -241,7 +242,7 @@ pub fn rotate(r#impl: &MeshBoolImpl, x_degrees: f64, y_degrees: f64, z_degrees: 
 ///chained. Transforms are combined and applied lazily.
 ///
 ///@param m The affine transform matrix to apply to all the vertices.
-pub fn transform(r#impl: &MeshBoolImpl, m: &Matrix3x4<f64>) -> MeshBoolImpl {
+pub fn transform(r#impl: &Impl, m: &Matrix3x4<f64>) -> Impl {
     r#impl.transform(&m)
 }
 
@@ -257,44 +258,44 @@ pub fn transform(r#impl: &MeshBoolImpl, m: &Matrix3x4<f64>) -> MeshBoolImpl {
 ///
 /// @param second The other Manifold.
 /// @param op The type of operation to perform.
-pub fn boolean(first: &MeshBoolImpl, second: &MeshBoolImpl, op: OpType) -> MeshBoolImpl {
+pub fn boolean(first: &Impl, second: &Impl, op: OpType) -> Impl {
     Boolean3::new(first, second, op).result(op)
 }
 
-impl Add for &MeshBoolImpl {
-    type Output = MeshBoolImpl;
+impl Add for &Impl {
+    type Output = Impl;
     fn add(self, rhs: Self) -> Self::Output {
         boolean(self, rhs, OpType::Add)
     }
 }
 
-impl AddAssign<&Self> for MeshBoolImpl {
+impl AddAssign<&Self> for Impl {
     fn add_assign(&mut self, rhs: &Self) {
         *self = boolean(self, rhs, OpType::Add);
     }
 }
 
-impl Sub for &MeshBoolImpl {
-    type Output = MeshBoolImpl;
+impl Sub for &Impl {
+    type Output = Impl;
     fn sub(self, rhs: Self) -> Self::Output {
         boolean(self, rhs, OpType::Subtract)
     }
 }
 
-impl SubAssign<&Self> for MeshBoolImpl {
+impl SubAssign<&Self> for Impl {
     fn sub_assign(&mut self, rhs: &Self) {
         *self = boolean(self, rhs, OpType::Subtract);
     }
 }
 
-impl BitXor for &MeshBoolImpl {
-    type Output = MeshBoolImpl;
+impl BitXor for &Impl {
+    type Output = Impl;
     fn bitxor(self, rhs: Self) -> Self::Output {
         boolean(self, rhs, OpType::Intersect)
     }
 }
 
-impl BitXorAssign<&Self> for MeshBoolImpl {
+impl BitXorAssign<&Self> for Impl {
     fn bitxor_assign(&mut self, rhs: &Self) {
         *self = boolean(self, rhs, OpType::Intersect);
     }
@@ -320,25 +321,25 @@ pub enum ManifoldError {
 ///
 ///@param r#impl The manifold to slice.
 ///@param height The Z-coordinate at which to slice the manifold.
-///@return MeshBoolImpl The resulting 2D cross-section as a manifold.
+///@return Impl The resulting 2D cross-section as a manifold.
 ///Cross-section functionality - slices a manifold at a given height along the Z-axis.
 ///This function computes the cross-section of a 3D manifold at a specific height,
 ///returning a 2D polygon representation of the intersection.
 ///
 ///@param r#impl The manifold to slice.
 ///@param height The Z-coordinate at which to slice the manifold.
-///@return MeshBoolImpl The resulting 2D cross-section as a manifold.
-pub fn cross_section(r#impl: &MeshBoolImpl, height: f64) -> MeshBoolImpl {
+///@return Impl The resulting 2D cross-section as a manifold.
+pub fn cross_section(r#impl: &Impl, height: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
-        let mut result = MeshBoolImpl::default();
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return MeshBoolImpl::default();
+        return Impl::default();
     }
     
     // Convert to MeshGL and compute cross-section
@@ -347,7 +348,7 @@ pub fn cross_section(r#impl: &MeshBoolImpl, height: f64) -> MeshBoolImpl {
     
     // If no intersections were found, return an empty manifold
     if intersection_points.is_empty() {
-        return MeshBoolImpl::default();
+        return Impl::default();
     }
     
     // For now, let's use a simple approach - just sort the points and return a 2D mesh
@@ -361,18 +362,18 @@ pub fn cross_section(r#impl: &MeshBoolImpl, height: f64) -> MeshBoolImpl {
     
 ///
 ///@param r#impl The input manifold to compute the convex hull of.
-///@return MeshBoolImpl The resulting convex hull as a manifold.
-pub fn hull(r#impl: &MeshBoolImpl) -> MeshBoolImpl {
+///@return Impl The resulting convex hull as a manifold.
+pub fn hull(r#impl: &Impl) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
-        let mut result = MeshBoolImpl::default();
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return MeshBoolImpl::default();
+        return Impl::default();
     }
     
     // Extract vertices from the mesh
@@ -440,18 +441,18 @@ pub fn hull(r#impl: &MeshBoolImpl) -> MeshBoolImpl {
 ///
 ///@param r#impl The input manifold to create the SDF from.
 ///@param tolerance The tolerance for the SDF computation.
-///@return MeshBoolImpl The resulting SDF as a manifold.
-pub fn sdf(r#impl: &MeshBoolImpl, tolerance: f64) -> MeshBoolImpl {
+///@return Impl The resulting SDF as a manifold.
+pub fn sdf(r#impl: &Impl, tolerance: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
-        let mut result = MeshBoolImpl::default();
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return MeshBoolImpl::default();
+        return Impl::default();
     }
     
     // For a basic implementation, return the original mesh as an SDF
@@ -470,18 +471,18 @@ pub fn sdf(r#impl: &MeshBoolImpl, tolerance: f64) -> MeshBoolImpl {
 ///
 ///@param r#impl The input manifold to smooth.
 ///@param tolerance The tolerance for the smoothing operation.
-///@return MeshBoolImpl The resulting smoothed manifold.
-pub fn smooth(r#impl: &MeshBoolImpl, tolerance: f64) -> MeshBoolImpl {
+///@return Impl The resulting smoothed manifold.
+pub fn smooth(r#impl: &Impl, tolerance: f64) -> Impl {
     // If the input is invalid, return an invalid manifold
     if r#impl.status != ManifoldError::NoError {
-        let mut result = MeshBoolImpl::default();
+        let mut result = Impl::default();
         result.status = r#impl.status;
         return result;
     }
     
     // If the input is empty, return an empty manifold
     if r#impl.is_empty() {
-        return MeshBoolImpl::default();
+        return Impl::default();
     }
     
     // For now, return the original mesh
@@ -508,7 +509,7 @@ pub fn smooth(r#impl: &MeshBoolImpl, tolerance: f64) -> MeshBoolImpl {
 ///the applied transforms and front/back side. normalIdx + 3 must be <=
 ///numProp, and all original MeshGLs must use the same channels for their
 ///normals.
-pub fn get_mesh_gl(r#impl: &MeshBoolImpl, normal_idx: i32) -> MeshGL {
+pub fn get_mesh_gl(r#impl: &Impl, normal_idx: i32) -> MeshGL {
     let num_prop = r#impl.num_prop();
     let num_vert = r#impl.num_prop_vert();
     let num_tri = r#impl.num_tri();

@@ -1,6 +1,6 @@
 use nalgebra::Point3;
 
-use crate::r#impl::Impl;
+use crate::meshboolimpl::MeshBoolImpl;
 use crate::shared::{Halfedge, next_halfedge};
 
 struct CheckHalfedges<'a> {

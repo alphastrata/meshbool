@@ -1,7 +1,7 @@
 use crate::ManifoldError;
 use crate::boolean3::Boolean3;
 use crate::common::{Aabb, OpType, OrderedF64};
-use crate::r#impl::{Impl, MESH_ID_COUNTER};
+use crate::meshboolimpl::{Impl, MESH_ID_COUNTER};
 use crate::parallel::{
     copy_if, exclusive_scan_transformed, gather, gather_transformed, inclusive_scan,
 };

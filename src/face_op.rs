@@ -1,4 +1,4 @@
-use crate::r#impl::Impl;
+use crate::meshboolimpl::MeshBoolImpl;
 use crate::polygon::{PolyVert, PolygonsIdx, SimplePolygonIdx, triangulate_idx};
 use crate::shared::{Halfedge, TriRef, get_axis_aligned_projection};
 use crate::utils::ccw;

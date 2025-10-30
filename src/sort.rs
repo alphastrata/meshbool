@@ -1,7 +1,7 @@
 use crate::ManifoldError;
 use crate::collider::Collider;
 use crate::common::Aabb;
-use crate::r#impl::Impl;
+use crate::meshboolimpl::MeshBoolImpl;
 use crate::parallel::{inclusive_scan, scatter};
 use crate::utils::permute;
 use crate::vec::{vec_resize, vec_resize_nofill, vec_uninit};

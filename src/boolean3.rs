@@ -1,7 +1,7 @@
 use crate::collider::Recorder;
 use crate::common::{Aabb, AABBOverlap, OpType};
 use crate::disjoint_sets::DisjointSets;
-use crate::r#impl::Impl;
+use crate::meshboolimpl::MeshBoolImpl;
 use crate::shared::Halfedge;
 use crate::utils::permute;
 use core::f64;

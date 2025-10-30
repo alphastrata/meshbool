@@ -1,4 +1,4 @@
-use crate::r#impl::Impl;
+use crate::meshboolimpl::MeshBoolImpl;
 use crate::shared::{Halfedge, get_axis_aligned_projection, next_halfedge};
 use crate::utils::ccw;
 use nalgebra::{Point2, Point3, Vector3, distance};

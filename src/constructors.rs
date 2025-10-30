@@ -1,5 +1,5 @@
 use crate::common::{Polygons, Quality, SimplePolygon};
-use crate::r#impl::{Impl, Shape};
+use crate::meshboolimpl::{Impl, Shape};
 use crate::polygon::{PolyVert, PolygonsIdx, SimplePolygonIdx, triangulate_idx};
 use crate::{as_original, invalid, translate};
 use nalgebra::{Matrix2, Matrix3x4, Point2, Point3, Vector3};
