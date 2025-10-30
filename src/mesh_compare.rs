@@ -5,7 +5,7 @@
 //! checking volume, vertex count, edge count, and vertex positions within
 //! a specified tolerance.
 
-use crate::{Impl, get_mesh_gl};
+use crate::{MeshBoolImpl, get_mesh_gl};
 
 /// Default tolerance for mesh comparison
 const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangulation strategies
@@ -23,7 +23,7 @@ const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangu
 /// # Returns
 /// * `true` if meshes are approximately equal within tolerance
 /// * `false` otherwise
-pub fn approx_eq_meshes(our_mesh: &Impl, their_mesh: &Impl, tolerance: Option<f64>) -> bool {
+pub fn approx_eq_meshes(our_mesh: &MeshBoolImpl, their_mesh: &MeshBoolImpl, tolerance: Option<f64>) -> bool {
     let tolerance = tolerance.unwrap_or(DEFAULT_TOLERANCE);
 
     // Get mesh data from both implementations

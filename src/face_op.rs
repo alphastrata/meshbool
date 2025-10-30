@@ -68,7 +68,7 @@ fn project_polygons(
     polygons
 }
 
-impl Impl {
+impl MeshBoolImpl {
     ///Triangulates the faces. In this case, the halfedge_ vector is not yet a set
     ///of triangles as required by this data structure, but is instead a set of
     ///general faces with the input faceEdge vector having length of the number of

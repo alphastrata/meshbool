@@ -20,7 +20,7 @@ fn morton_code(position: Point3<f64>, bbox: Aabb) -> u32 {
     }
 }
 
-impl Impl {
+impl MeshBoolImpl {
     ///Once halfedge_ has been filled in, this function can be called to create the
     ///rest of the internal data structures. This function also removes the verts
     ///and halfedges flagged for removal (NaN verts and -1 halfedges).

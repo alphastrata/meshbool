@@ -34,7 +34,7 @@ impl<'a> CheckHalfedges<'a> {
     }
 }
 
-impl Impl {
+impl MeshBoolImpl {
     /**
      * Returns true if this manifold is in fact an oriented even manifold and all of
      * the data structures are consistent.

@@ -1,4 +1,4 @@
-use crate::{Impl, ManifoldError};
+use crate::{MeshBoolImpl, ManifoldError};
 use nalgebra::Point3;
 
 ///Sort intersection points to form a proper polygon boundary
@@ -57,9 +57,9 @@ pub fn triangulate_polygon(points: &[Point3<f64>]) -> Vec<[usize; 3]> {
 }
 
 ///Create a 2D mesh from points and triangles
-pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> Impl {
+pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> MeshBoolImpl {
     if points.is_empty() || triangles.is_empty() {
-        return Impl::default();
+        return MeshBoolImpl::default();
     }
     
     // Create vertex properties (x, y, z for position)
@@ -78,18 +78,18 @@ pub fn create_2d_mesh(points: &[Point3<f64>], triangles: &[[usize; 3]]) -> Impl 
         tri_verts.push(triangle[2] as u32);
     }
     
-    // Create a proper Impl with the cross-section data
-    // We need to build the internal representation for the Impl structure
+    // Create a proper MeshBoolImpl with the cross-section data
+    // We need to build the internal representation for the MeshBoolImpl structure
     // This is a simplified approach - a real implementation would need to properly set up
-    // all the internal data structures of the Impl
+    // all the internal data structures of the MeshBoolImpl
     
-    // For now, we'll return a basic Impl with the status set to NoError
+    // For now, we'll return a basic MeshBoolImpl with the status set to NoError
     // A full implementation would set up the proper mesh data structures
-    let mut result = Impl::default();
+    let mut result = MeshBoolImpl::default();
     result.status = ManifoldError::NoError;
     
     // Note: In a complete implementation, we would need to properly set all the
-    // internal fields of Impl like vert_pos, halfedge, etc., based on the
+    // internal fields of MeshBoolImpl like vert_pos, halfedge, etc., based on the
     // cross-section data
     
     result

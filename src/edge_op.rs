@@ -23,7 +23,7 @@ fn is_01_longest(v0: Point2<f64>, v1: Point2<f64>, v2: Point2<f64>) -> bool {
 }
 
 struct ShortEdge<'a> {
-    r#impl: &'a mut Impl,
+    r#impl: &'a mut MeshBoolImpl,
     epsilon: f64,
     first_new_vert: i32,
 }
@@ -43,13 +43,13 @@ impl<'a> Pred for ShortEdge<'a> {
         delta.magnitude_squared() < self.epsilon.powi(2)
     }
 
-    fn get_impl(&mut self) -> &mut Impl {
+    fn get_impl(&mut self) -> &mut MeshBoolImpl {
         self.r#impl
     }
 }
 
 struct FlagEdge<'a> {
-    r#impl: &'a mut Impl,
+    r#impl: &'a mut MeshBoolImpl,
     first_new_vert: i32,
 }
 
@@ -82,13 +82,13 @@ impl<'a> Pred for FlagEdge<'a> {
         true
     }
 
-    fn get_impl(&mut self) -> &mut Impl {
+    fn get_impl(&mut self) -> &mut MeshBoolImpl {
         self.r#impl
     }
 }
 
 struct SwappableEdge<'a> {
-    r#impl: &'a mut Impl,
+    r#impl: &'a mut MeshBoolImpl,
     tolerance: f64,
     first_new_vert: i32,
 }
@@ -136,14 +136,14 @@ impl<'a> Pred for SwappableEdge<'a> {
         ccw(v[0], v[1], v[2], self.tolerance) > 0 || is_01_longest(v[0], v[1], v[2])
     }
 
-    fn get_impl(&mut self) -> &mut Impl {
+    fn get_impl(&mut self) -> &mut MeshBoolImpl {
         self.r#impl
     }
 }
 
 trait Pred {
     fn call(&self, edge: usize) -> bool;
-    fn get_impl(&mut self) -> &mut Impl;
+    fn get_impl(&mut self) -> &mut MeshBoolImpl;
 }
 
 #[derive(Default)]
@@ -154,7 +154,7 @@ struct FlagStore {
 impl FlagStore {
     fn run_seq<F>(&mut self, n: usize, mut pred: impl Pred, mut f: F)
     where
-        F: FnMut(&mut Impl, usize),
+        F: FnMut(&mut MeshBoolImpl, usize),
     {
         for i in 0..n {
             if pred.call(i) {
@@ -169,13 +169,13 @@ impl FlagStore {
 
     fn run<F>(&mut self, n: usize, pred: impl Pred, f: F)
     where
-        F: FnMut(&mut Impl, usize),
+        F: FnMut(&mut MeshBoolImpl, usize),
     {
         self.run_seq(n, pred, f);
     }
 }
 
-impl Impl {
+impl MeshBoolImpl {
     ///Duplicates just enough verts to covert an even-manifold to a proper
     ///2-manifold, splitting non-manifold verts and edges with too many triangles.
     pub(crate) fn cleanup_topology(&mut self) {
@@ -761,7 +761,7 @@ impl Impl {
 
         v[3] = projection * self.vert_pos[self.halfedge[tri1_edge[2] as usize].start_vert as usize];
 
-        let swap_edge = |myself: &mut Impl| {
+        let swap_edge = |myself: &mut MeshBoolImpl| {
             // The 0-verts are swapped to the opposite 2-verts.
             let v0 = myself.halfedge[tri0_edge[2] as usize].start_vert;
             let v1 = myself.halfedge[tri1_edge[2] as usize].start_vert;

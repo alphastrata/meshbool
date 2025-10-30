@@ -1,6 +1,8 @@
 use crate::boolean3::Boolean3;
 use crate::meshboolimpl::{MeshBoolImpl, Relation};
 use crate::shared::normal_transform;
+pub use crate::common::Aabb;
+pub use crate::common::OpType;
 pub use crate::meshboolimpl::MeshBoolImpl as Impl; // For backward compatibility
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};

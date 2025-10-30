@@ -1,7 +1,7 @@
 use crate::ManifoldError;
 use crate::boolean3::Boolean3;
 use crate::common::{Aabb, OpType, OrderedF64};
-use crate::meshboolimpl::{Impl, MESH_ID_COUNTER};
+use crate::meshboolimpl::{MeshBoolImpl, MESH_ID_COUNTER};
 use crate::parallel::{
     copy_if, exclusive_scan_transformed, gather, gather_transformed, inclusive_scan,
 };
@@ -16,8 +16,8 @@ use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 struct SizeOutputParams<'a> {
-    in_p: &'a Impl,
-    in_q: &'a Impl,
+    in_p: &'a MeshBoolImpl,
+    in_q: &'a MeshBoolImpl,
     i03: &'a [i32],
     i30: &'a [i32],
     i12: Vec<i32>,
@@ -39,7 +39,7 @@ struct AddNewEdgeVertsParams<'a> {
 
 #[derive(Debug)]
 struct AppendPartialEdgesParams<'a> {
-    in_p: &'a Impl,
+    in_p: &'a MeshBoolImpl,
     i03: &'a [i32],
     v_p2r: &'a [i32],
     face_p2r: &'a [i32],
@@ -129,7 +129,7 @@ impl<'a, const INVERTED: bool, const ATOMIC: bool> CountNewVerts<'a, INVERTED, A
 }
 
 fn size_output(
-    out_r: &mut Impl,
+    out_r: &mut MeshBoolImpl,
     params: SizeOutputParams,
 ) -> (Vec<i32>, Vec<i32>) {
     let mut sides_per_face_pq = vec![0; params.in_p.num_tri() + params.in_q.num_tri()];
@@ -332,7 +332,7 @@ fn pair_up(edge_pos: &mut [EdgePos]) -> Vec<Halfedge> {
 }
 
 fn append_partial_edges(
-    out_r: &mut Impl,
+    out_r: &mut MeshBoolImpl,
     whole_halfedge_p: &mut [bool],
     face_ptr_r: &mut [i32],
     mut edges_p: BTreeMap<i32, Vec<EdgePos>>,
@@ -433,7 +433,7 @@ fn append_partial_edges(
 }
 
 fn append_new_edges(
-    out_r: &mut Impl,
+    out_r: &mut MeshBoolImpl,
     face_ptr_r: &mut [i32],
     edges_new: BTreeMap<(i32, i32), Vec<EdgePos>>,
     halfedge_ref: &mut [TriRef],
@@ -505,10 +505,10 @@ fn append_new_edges(
 }
 
 fn append_whole_edges(
-    out_r: &mut Impl,
+    out_r: &mut MeshBoolImpl,
     face_ptr_r: &mut [i32],
     halfedge_ref: &mut [TriRef],
-    in_p: &Impl,
+    in_p: &MeshBoolImpl,
     params: AppendWholeEdgesParams,
 ) {
     for idx in 0..in_p.halfedge.len() {
@@ -596,7 +596,7 @@ impl<'a> UpdateReference<'a> {
     }
 }
 
-fn update_reference(out_r: &mut Impl, in_p: &Impl, in_q: &Impl, invert_q: bool) {
+fn update_reference(out_r: &mut MeshBoolImpl, in_p: &MeshBoolImpl, in_q: &MeshBoolImpl, invert_q: bool) {
     let offset_q = MESH_ID_COUNTER.load(Ordering::SeqCst) as i32;
     let num_tri = out_r.num_tri();
     for tri_ref in &mut out_r.mesh_relation.tri_ref[..num_tri] {
@@ -673,7 +673,7 @@ impl<'a> Barycentric<'a> {
     }
 }
 
-fn create_properties(out_r: &mut Impl, in_p: &Impl, in_q: &Impl) {
+fn create_properties(out_r: &mut MeshBoolImpl, in_p: &MeshBoolImpl, in_q: &MeshBoolImpl) {
     let num_prop_p = in_p.num_prop();
     let num_prop_q = in_q.num_prop();
     let num_prop = num_prop_p.max(num_prop_q);
@@ -850,7 +850,7 @@ fn reorder_halfedges(halfedges: &mut [Halfedge]) {
 }
 
 impl<'a> Boolean3<'a> {
-    pub fn result(self, op: OpType) -> Impl {
+    pub fn result(self, op: OpType) -> MeshBoolImpl {
         debug_assert!(
             (self.expand_p > 0.0) == (op == OpType::Add),
             "Result op type not compatible with constructor op type."
@@ -860,7 +860,7 @@ impl<'a> Boolean3<'a> {
         let c3 = if op == OpType::Intersect { 1 } else { -1 };
 
         if self.in_p.status != ManifoldError::NoError {
-            let r#impl = Impl {
+            let r#impl = MeshBoolImpl {
                 status: self.in_p.status,
                 ..Default::default()
             };
@@ -868,7 +868,7 @@ impl<'a> Boolean3<'a> {
         }
 
         if self.in_q.status != ManifoldError::NoError {
-            let r#impl = Impl {
+            let r#impl = MeshBoolImpl {
                 status: self.in_q.status,
                 ..Default::default()
             };
@@ -880,17 +880,17 @@ impl<'a> Boolean3<'a> {
                 return self.in_q.clone();
             }
 
-            return Impl::default();
+            return MeshBoolImpl::default();
         } else if self.in_q.is_empty() {
             if op == OpType::Intersect {
-                return Impl::default();
+                return MeshBoolImpl::default();
             }
 
             return self.in_p.clone();
         }
 
         if !self.valid {
-            let r#impl = Impl {
+            let r#impl = MeshBoolImpl {
                 status: ManifoldError::ResultTooLarge,
                 ..Default::default()
             };
@@ -934,7 +934,7 @@ impl<'a> Boolean3<'a> {
         //let n21 = num_vert_r - n_pv - n_qv - n12;
 
         // Create the output Manifold
-        let mut out_r = Impl::default();
+        let mut out_r = MeshBoolImpl::default();
 
         if num_vert_r == 0 {
             return out_r;
