@@ -1,5 +1,5 @@
 use crate::common::{Polygons, Quality, SimplePolygon};
-use crate::r#impl::{Impl, Shape};
+use crate::meshboolimpl::{MeshBoolImpl, Shape};
 use crate::polygon::{PolyVert, PolygonsIdx, SimplePolygonIdx, triangulate_idx};
 use crate::{as_original, invalid, translate};
 use nalgebra::{Matrix2, Matrix3x4, Point2, Point3, Vector3};
@@ -10,7 +10,7 @@ use nalgebra::{Matrix2, Matrix3x4, Point2, Point3, Vector3};
 ///
 ///@param size The X, Y, and Z dimensions of the box.
 ///@param center Set to true to shift the center to the origin.
-pub fn cube(size: Vector3<f64>, center: bool) -> Impl {
+pub fn cube(size: Vector3<f64>, center: bool) -> MeshBoolImpl {
     if size.x < 0.0 || size.y < 0.0 || size.z < 0.0 || size.magnitude_squared() == 0.0 {
         return invalid();
     }
@@ -26,7 +26,7 @@ pub fn cube(size: Vector3<f64>, center: bool) -> Impl {
         },
     ]);
 
-    Impl::from_shape(Shape::Cube, m)
+    MeshBoolImpl::from_shape(Shape::Cube, m)
 }
 
 ///A convenience constructor for the common case of extruding a circle. Can also
@@ -46,7 +46,7 @@ pub fn cylinder(
     radius_high: f64,
     circular_segments: u32,
     center: bool,
-) -> Impl {
+) -> MeshBoolImpl {
     if height <= 0.0 || radius_low <= 0.0 {
         return invalid();
     }
@@ -104,7 +104,7 @@ pub fn extrude(
     mut n_divisions: u32,
     twist_degrees: f64,
     mut scale_top: Point2<f64>,
-) -> Impl {
+) -> MeshBoolImpl {
     if cross_section.len() == 0 || height <= 0.0 {
         return invalid();
     }
@@ -194,9 +194,9 @@ pub fn extrude(
         }
     }
 
-    let mut r#impl = Impl {
+    let mut r#impl = MeshBoolImpl {
         vert_pos,
-        ..Impl::default()
+        ..MeshBoolImpl::default()
     };
 
     r#impl.create_halfedges(tri_verts, Vec::new());
@@ -212,7 +212,7 @@ pub fn extrude(
 ///@param circular_segments How many line segments to use for both longitude and latitude.
 ///Default is calculated by the static Defaults.
 ///@param center Set to true to shift the center to the origin. Default is origin at the bottom.
-pub fn sphere(radius: f64, circular_segments: u32, _center: bool) -> Impl {
+pub fn sphere(radius: f64, circular_segments: u32, _center: bool) -> MeshBoolImpl {
     if radius <= 0.0 {
         return invalid();
     }
@@ -258,9 +258,9 @@ pub fn sphere(radius: f64, circular_segments: u32, _center: bool) -> Impl {
         }
     }
 
-    let mut r#impl = Impl {
+    let mut r#impl = MeshBoolImpl {
         vert_pos: vertices,
-        ..Impl::default()
+        ..MeshBoolImpl::default()
     };
 
     r#impl.create_halfedges(triangles, Vec::new());
