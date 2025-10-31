@@ -450,9 +450,7 @@ impl MeshBoolImpl {
                 let mut offsets: Vec<i32> = vec![0; (vert_count * 2) as usize];
                 let mut set_offset = |_e: i32, v0: i32, v1: i32| {
                     let offset = if v0 > v1 { 0 } else { vert_count };
-                    unsafe {
-                        atomic_add_i32(&mut offsets, (v0.min(v1) + offset) as usize, 1);
-                    }
+                    atomic_add_i32(&mut offsets, (v0.min(v1) + offset) as usize, 1);
                 };
 
                 if tri_vert.is_empty() {

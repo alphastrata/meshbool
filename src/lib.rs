@@ -4,6 +4,8 @@ use crate::shared::normal_transform;
 pub use crate::common::Aabb;
 pub use crate::common::OpType;
 pub use crate::meshboolimpl::MeshBoolImpl as Impl; // For backward compatibility
+#[cfg(feature = "bevy")]
+pub use bevy_conversion::*;
 use nalgebra::{Matrix3, Matrix3x4, Point3, UnitQuaternion, Vector2, Vector3};
 use std::ops::{Add, AddAssign, BitXor, BitXorAssign, Sub, SubAssign};
 
@@ -30,6 +32,8 @@ mod vec;
 mod cross_section_helper;
 pub mod mesh_compare;
 mod cross_section_utils;
+#[cfg(feature = "bevy")]
+mod bevy_conversion;
 
 #[test]
 fn test() {
@@ -348,7 +352,7 @@ pub fn cross_section(r#impl: &MeshBoolImpl, height: f64) -> MeshBoolImpl {
     
     // Calculate appropriate tolerance for this mesh size
     let mesh_scale = r#impl.bbox.scale();
-    let tolerance = mesh_gl.tolerance.max(f32::EPSILON * mesh_scale as f32) as f64;
+    let _tolerance = mesh_gl.tolerance.max(f32::EPSILON * mesh_scale as f32) as f64;
     
     let (intersection_points, _polygon_indices) = crate::cross_section_helper::compute_cross_section(&mesh_gl, height);
     
