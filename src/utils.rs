@@ -54,8 +54,10 @@ where
     gather(new2old, &tmp, in_out);
 }
 
-pub unsafe fn atomic_add_i32(target: &mut i32, add: i32) -> i32 {
-    let atomic_ref: &AtomicI32 = unsafe { std::mem::transmute(target) };
+///Atomically adds a value to an i32 at a specific index in a slice and returns the previous value.
+pub fn atomic_add_i32(target: &mut [i32], index: usize, add: i32) -> i32 {
+    // Create an atomic reference to the specific element
+    let atomic_ref: &AtomicI32 = unsafe { &*(target.as_ptr().add(index) as *const AtomicI32) };
     atomic_ref.fetch_add(add, Ordering::SeqCst)
 }
 
