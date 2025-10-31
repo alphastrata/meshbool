@@ -217,7 +217,7 @@ impl<'a> BuildInternalBoxes<'a> {
         loop {
             node = self.node_parent[node as usize];
             let internal = node2internal(node);
-            if unsafe { atomic_add_i32(&mut self.counter[internal as usize], 1) } == 0 {
+            if atomic_add_i32(&mut self.counter, internal as usize, 1) == 0 {
                 return;
             }
             self.node_bbox[node as usize] = self.node_bbox

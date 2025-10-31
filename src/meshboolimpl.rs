@@ -451,7 +451,7 @@ impl MeshBoolImpl {
                 let mut set_offset = |_e: i32, v0: i32, v1: i32| {
                     let offset = if v0 > v1 { 0 } else { vert_count };
                     unsafe {
-                        atomic_add_i32(&mut offsets[(v0.min(v1) + offset) as usize], 1);
+                        atomic_add_i32(&mut offsets, (v0.min(v1) + offset) as usize, 1);
                     }
                 };
 
@@ -493,7 +493,7 @@ impl MeshBoolImpl {
                         let offset = if v0 > v1 { 0 } else { vert_count as i32 };
                         let start = v0.min(v1);
                         let index =
-                            unsafe { atomic_add_i32(&mut offsets[(start + offset) as usize], 1) };
+                            atomic_add_i32(&mut offsets, (start + offset) as usize, 1);
                         entries[index as usize] = HalfedgePairData {
                             large_vert: v0.max(v1),
                             tri,
