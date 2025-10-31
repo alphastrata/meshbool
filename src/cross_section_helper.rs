@@ -86,15 +86,18 @@ fn intersect_edge_with_plane(x0: f64, y0: f64, z0: f64, x1: f64, y1: f64, z1: f6
     // Check if edge crosses the plane
     let z_diff = z1 - z0;
     
-    // Avoid division by zero
-    if z_diff.abs() < 1e-10 {
+    // Avoid division by zero - use a relative epsilon based on the coordinate magnitudes
+    let epsilon = 1e-10 * (z0.abs() + z1.abs()).max(1.0);
+    if z_diff.abs() < epsilon {
         return None;
     }
     
     let t = (height - z0) / z_diff;
     
     // Check if intersection is within edge bounds (excluding endpoints to avoid duplicates)
-    if t <= 0.0 || t >= 1.0 {
+    // But allow for a small epsilon to handle numerical precision issues
+    let epsilon_t = 1e-10 * t.abs().max(1.0);
+    if t <= epsilon_t || t >= (1.0 - epsilon_t) {
         return None;
     }
     

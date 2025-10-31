@@ -345,6 +345,11 @@ pub fn cross_section(r#impl: &MeshBoolImpl, height: f64) -> MeshBoolImpl {
     
     // Convert to MeshGL and compute cross-section
     let mesh_gl = get_mesh_gl(r#impl, 0);
+    
+    // Calculate appropriate tolerance for this mesh size
+    let mesh_scale = r#impl.bbox.scale();
+    let tolerance = mesh_gl.tolerance.max(f32::EPSILON * mesh_scale as f32) as f64;
+    
     let (intersection_points, _polygon_indices) = crate::cross_section_helper::compute_cross_section(&mesh_gl, height);
     
     // If no intersections were found, return an empty manifold
