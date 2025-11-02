@@ -4,7 +4,7 @@
 //! by showing three shapes arranged like an equation: LHS op RHS = OUTPUT
 
 use bevy::{asset::RenderAssetUsages, prelude::*};
-use meshbool::{cube, cylinder, get_mesh_gl, translate};
+use meshbool::{cube, cylinder, get_mesh_gl, translate, MeshBool};
 use nalgebra::Vector3;
 
 fn main() {
@@ -31,10 +31,10 @@ struct DemoState {
 }
 
 #[derive(Resource)]
-struct LhsShape(pub meshbool::Impl);
+struct LhsShape(pub MeshBool);
 
 #[derive(Resource)]
-struct RhsShape(pub meshbool::Impl);
+struct RhsShape(pub MeshBool);
 
 #[derive(Component)]
 struct OutputShapeMarker;
@@ -220,7 +220,7 @@ fn handle_input(keyboard_input: Res<ButtonInput<KeyCode>>, mut state: ResMut<Dem
 }
 
 /// Create a complex LHS shape to serve as the "victim"
-fn create_lhs_shape() -> meshbool::Impl {
+fn create_lhs_shape() -> MeshBool {
     // Create a base cube
     let base = cube(Vector3::new(2.0, 2.0, 2.0), true);
 

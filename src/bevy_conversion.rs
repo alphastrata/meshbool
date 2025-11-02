@@ -1,8 +1,8 @@
-/// Convert a MeshBoolImpl to a Bevy Mesh
+/// Convert a MeshBool to a Bevy Mesh
 #[cfg(feature = "bevy")]
-pub fn meshbool_to_bevy_mesh(meshbool: &crate::MeshBoolImpl) -> bevy_mesh::Mesh {
+pub fn meshbool_to_bevy_mesh(meshbool: &crate::MeshBool) -> bevy_mesh::Mesh {
     // Get the mesh in the format suitable for graphics libraries
-    let mesh_gl = crate::get_mesh_gl(meshbool, 0);
+    let mesh_gl = meshbool.get_mesh_gl(0);
     meshgl_to_bevy_mesh(&mesh_gl)
 }
 
@@ -71,6 +71,7 @@ pub fn meshgl_to_bevy_mesh(mesh_gl: &crate::MeshGL) -> bevy_mesh::Mesh {
 /// Convert a Bevy Mesh to a MeshGL
 #[cfg(feature = "bevy")]
 pub fn bevy_mesh_to_meshgl(bevy_mesh: &bevy_mesh::Mesh) -> Option<crate::MeshGL> {
+
     // Extract data from Bevy mesh
     let positions = bevy_mesh.attribute(bevy_mesh::Mesh::ATTRIBUTE_POSITION)?;
     let normals = bevy_mesh.attribute(bevy_mesh::Mesh::ATTRIBUTE_NORMAL);
@@ -143,9 +144,21 @@ pub fn bevy_mesh_to_meshgl(bevy_mesh: &bevy_mesh::Mesh) -> Option<crate::MeshGL>
             tri_verts.extend(indices.iter().map(|&i| i as u32));
         },
         None => {
-            // If no indices, we need to create them based on triangle count
-            // For Bevy, vertices are usually already in triangle order
-            return None; // We can't create indices without them being provided
+            // If no indices, assume vertices are in triangle order
+            // Create sequential indices: 0, 1, 2, 3, 4, 5, etc.
+            if vert_properties.len() / (num_prop as usize) > 0 {
+                // Calculate how many vertices we have based on num_prop
+                let num_vertices = vert_properties.len() / (num_prop as usize);
+                // Create sequential indices if the number of vertices is divisible by 3 (for triangles)
+                if num_vertices % 3 == 0 {
+                    tri_verts.extend(0..(num_vertices as u32));
+                } else {
+                    // If vertices aren't in complete triangles, we can't convert
+                    return None;
+                }
+            } else {
+                return None;
+            }
         }
     };
     
@@ -162,3 +175,10 @@ pub fn bevy_mesh_to_meshgl(bevy_mesh: &bevy_mesh::Mesh) -> Option<crate::MeshGL>
         tolerance: 1e-6, // Default tolerance
     })
 }
+/// Convert a Bevy Mesh to a MeshBool
+#[cfg(feature = "bevy")]
+pub fn bevy_mesh_to_meshbool(bevy_mesh: &bevy_mesh::Mesh) -> Option<crate::MeshBool> {
+    let meshgl = bevy_mesh_to_meshgl(bevy_mesh)?;
+    Some(crate::MeshBool::from_meshgl(meshgl))
+}
+

@@ -6,15 +6,15 @@
 use bevy::prelude::*;
 use bevy::asset::AssetPlugin;
 use bevy_step_loader::{StepAsset, StepPlugin};
-use meshbool::{cube, cylinder, get_mesh_gl, translate, Impl};
+use meshbool::{cube, cylinder, get_mesh_gl, translate, MeshBool};
 use nalgebra::Vector3;
 use std::env;
 
 #[derive(Resource)]
-struct LhsShape(pub Option<meshbool::Impl>);
+struct LhsShape(pub Option<MeshBool>);
 
 #[derive(Resource)]
-struct RhsShape(pub Option<meshbool::Impl>);
+struct RhsShape(pub Option<MeshBool>);
 
 fn main() {
     // Check for command line arguments
@@ -293,7 +293,7 @@ struct OutputShapeMarker;
 struct LhsShapeMarker;
 
 /// Create a complex shape to simulate a loaded STEP file
-fn create_step_like_shape() -> meshbool::Impl {
+fn create_step_like_shape() -> MeshBool {
     // Create a base cube
     let base = cube(Vector3::new(3.0, 2.0, 1.0), true);
     
@@ -407,7 +407,7 @@ fn step_loader_system(
 
 /// Convert a StepAsset to meshbool::Impl
 /// This is a simplified implementation - a real conversion would be more complex
-fn convert_step_to_meshbool(_step_asset: &StepAsset) -> Option<Impl> {
+fn convert_step_to_meshbool(_step_asset: &StepAsset) -> Option<MeshBool> {
     // In a real implementation, we would extract geometry from the STEP file
     // and convert it to meshbool::Impl format.
     // The bevy_step_loader crate would need to provide access to the raw geometry.

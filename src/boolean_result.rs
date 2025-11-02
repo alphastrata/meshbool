@@ -1,6 +1,6 @@
 use crate::ManifoldError;
 use crate::boolean3::Boolean3;
-use crate::common::{AABB, OpType, OrderedF64};
+use crate::common::{Aabb, OpType, OrderedF64};
 use crate::meshboolimpl::{MESH_ID_COUNTER, MeshBoolImpl};
 use crate::parallel::{
 	copy_if, exclusive_scan_transformed, gather, gather_transformed, inclusive_scan,
@@ -43,12 +43,11 @@ struct CountVerts<'a, const ATOMIC: bool> {
 impl<'a, const ATOMIC: bool> CountVerts<'a, ATOMIC> {
 	fn call(&mut self, i: usize) {
 		if ATOMIC {
-			unsafe {
 				atomic_add_i32(
-					&mut self.count[i / 3],
+					&mut self.count,
+					i / 3,
 					self.inclusion[self.halfedges[i].start_vert as usize].abs(),
 				);
-			}
 		} else {
 			self.count[i / 3] += self.inclusion[self.halfedges[i].start_vert as usize].abs();
 		}
@@ -71,14 +70,13 @@ impl<'a, const INVERTED: bool, const ATOMIC: bool> CountNewVerts<'a, INVERTED, A
 
 		let half = self.halfedges[edge_p];
 		if ATOMIC {
-			unsafe {
-				atomic_add_i32(&mut self.count_q[face_q], inclusion);
-				atomic_add_i32(&mut self.count_p[edge_p / 3], inclusion);
+				atomic_add_i32(&mut self.count_q, face_q, inclusion);
+				atomic_add_i32(&mut self.count_p, edge_p / 3, inclusion);
 				atomic_add_i32(
-					&mut self.count_p[(half.paired_halfedge / 3) as usize],
+					&mut self.count_p,
+					(half.paired_halfedge / 3) as usize,
 					inclusion,
 				);
-			}
 		} else {
 			self.count_q[face_q] += inclusion;
 			self.count_p[edge_p / 3] += inclusion;
@@ -424,7 +422,7 @@ fn append_new_edges(
 		let face_q = value.0.1;
 		let edge_pos = &mut value.1;
 
-		let mut bbox = AABB::default();
+		let mut bbox = Aabb::default();
 		for edge in edge_pos.iter() {
 			bbox.union_point(vert_pos_r[edge.vert as usize]);
 		}
@@ -533,8 +531,8 @@ fn append_whole_edges(
 		};
 
 		for _ in 0..inclusion.abs() {
-			let forward_edge = unsafe { atomic_add_i32(&mut face_ptr_r[new_face as usize], 1) };
-			let backward_edge = unsafe { atomic_add_i32(&mut face_ptr_r[face_right as usize], 1) };
+            let forward_edge = atomic_add_i32(face_ptr_r, new_face as usize, 1);
+            let backward_edge = atomic_add_i32(face_ptr_r, face_right as usize, 1);
 			halfedge.paired_halfedge = backward_edge;
 
 			out_r.halfedge[forward_edge as usize] = halfedge;

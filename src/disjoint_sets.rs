@@ -89,4 +89,29 @@ impl DisjointSets {
     fn parent(&self, id: u32) -> u32 {
         self.m_data[id as usize].load(Ordering::SeqCst) as u32
     }
+
+    /// Compute the connected components of the disjoint sets
+    pub fn connected_components(&self, components: &mut Vec<u32>) {
+        let size = self.m_data.len();
+        components.clear();
+        components.resize(size, 0);
+        
+        // Find root of each element
+        for i in 0..size {
+            components[i] = self.find(i as u32);
+        }
+        
+        // Renumber roots consecutively
+        let mut root_map = std::collections::HashMap::new();
+        let mut next_root = 0u32;
+        
+        for i in 0..size {
+            let root = components[i];
+            if !root_map.contains_key(&root) {
+                root_map.insert(root, next_root);
+                next_root += 1;
+            }
+            components[i] = *root_map.get(&root).unwrap();
+        }
+    }
 }

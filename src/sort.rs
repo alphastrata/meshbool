@@ -1,16 +1,16 @@
 use crate::ManifoldError;
 use crate::collider::Collider;
-use crate::common::AABB;
+use crate::common::Aabb;
 use crate::meshboolimpl::MeshBoolImpl;
 use crate::parallel::{inclusive_scan, scatter};
 use crate::utils::permute;
-use crate::vec::{vec_resize, vec_resize_nofill, vec_uninit};
+use crate::vec::{vec_resize, vec_uninit};
 use nalgebra::Point3;
 use std::mem;
 
 const K_NO_CODE: u32 = 0xFFFFFFFF;
 
-fn morton_code(position: Point3<f64>, bbox: AABB) -> u32 {
+fn morton_code(position: Point3<f64>, bbox: Aabb) -> u32 {
 	// Unreferenced vertices are marked NaN, and this will sort them to the end
 	// (the Morton code only uses the first 30 of 32 bits).
 	if position.x.is_nan() {
@@ -38,7 +38,7 @@ impl MeshBoolImpl {
 		}
 
 		self.sort_verts();
-		let mut face_box: Vec<AABB> = Vec::default();
+		let mut face_box: Vec<Aabb> = Vec::default();
 		let mut face_morton: Vec<u32> = Vec::default();
 		self.get_face_box_morton(&mut face_box, &mut face_morton);
 		self.sort_faces(&mut face_box, &mut face_morton);
@@ -129,17 +129,19 @@ impl MeshBoolImpl {
 		inclusive_scan(keep.iter().cloned(), &mut prop_old2new);
 
 		let old_prop = self.properties.clone();
-		let num_verts_new = prop_old2new[num_verts];
-		unsafe {
-			vec_resize_nofill(&mut self.properties, num_prop * (num_verts_new as usize));
-		}
+		let num_verts_new = prop_old2new[num_verts] as usize;
+		// Properly resize the vector with default values instead of uninitialized memory
+		self.properties.resize(num_prop * num_verts_new, 0.0);
 		for old_idx in 0..num_verts {
 			if keep[old_idx] == 0 {
 				continue;
 			}
 			for p in 0..num_prop {
-				self.properties[prop_old2new[old_idx] as usize * num_prop + p] =
-					old_prop[old_idx * num_prop + p];
+				let target_idx = prop_old2new[old_idx] as usize * num_prop + p;
+				let source_idx = old_idx * num_prop + p;
+				if target_idx < self.properties.len() && source_idx < old_prop.len() {
+					self.properties[target_idx] = old_prop[source_idx];
+				}
 			}
 		}
 
@@ -151,12 +153,11 @@ impl MeshBoolImpl {
 	///Fills the faceBox and faceMorton input with the bounding boxes and Morton
 	///codes of the faces, respectively. The Morton code is based on the center of
 	///the bounding box.
-	pub fn get_face_box_morton(&self, face_box: &mut Vec<AABB>, face_morton: &mut Vec<u32>) {
+	pub fn get_face_box_morton(&self, face_box: &mut Vec<Aabb>, face_morton: &mut Vec<u32>) {
 		// faceBox should be initialized
 		vec_resize(face_box, self.num_tri());
-		unsafe {
-			vec_resize_nofill(face_morton, self.num_tri());
-		}
+		// Properly resize the vector with default values instead of uninitialized memory
+		face_morton.resize(self.num_tri(), 0);
 		for face in 0..self.num_tri() {
 			// Removed tris are marked by all halfedges having pairedHalfedge
 			// = -1, and this will sort them to the end (the Morton code only
@@ -182,7 +183,7 @@ impl MeshBoolImpl {
 
 	///Sorts the faces of this manifold according to their input Morton code. The
 	///bounding box and Morton code arrays are also sorted accordingly.
-	fn sort_faces(&mut self, face_box: &mut Vec<AABB>, face_morton: &mut Vec<u32>) {
+	fn sort_faces(&mut self, face_box: &mut Vec<Aabb>, face_morton: &mut Vec<u32>) {
 		let mut face_new2old: Vec<_> = (0..self.num_tri() as i32).collect();
 		face_new2old.sort_by_key(|&i| face_morton[i as usize]);
 

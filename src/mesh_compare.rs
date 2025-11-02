@@ -5,7 +5,7 @@
 //! checking volume, vertex count, edge count, and vertex positions within
 //! a specified tolerance.
 
-use crate::{MeshBoolImpl, get_mesh_gl};
+use crate::{MeshBool, get_mesh_gl};
 
 /// Default tolerance for mesh comparison
 const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangulation strategies
@@ -23,7 +23,7 @@ const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangu
 /// # Returns
 /// * `true` if meshes are approximately equal within tolerance
 /// * `false` otherwise
-pub fn approx_eq_meshes(our_mesh: &MeshBoolImpl, their_mesh: &MeshBoolImpl, tolerance: Option<f64>) -> bool {
+pub fn approx_eq_meshes(our_mesh: &MeshBool, their_mesh: &MeshBool, tolerance: Option<f64>) -> bool {
     let tolerance = tolerance.unwrap_or(DEFAULT_TOLERANCE);
 
     // Get mesh data from both implementations
@@ -72,9 +72,9 @@ pub fn approx_eq_meshes(our_mesh: &MeshBoolImpl, their_mesh: &MeshBoolImpl, tole
 #[macro_export]
 macro_rules! approx_eq {
     ($our_mesh:expr, $their_mesh:expr) => {
-        $crate::mesh_compare::approx_eq_meshes($our_mesh, $their_mesh, None)
+        $crate::approx_eq_meshes($our_mesh, $their_mesh, None)
     };
     ($our_mesh:expr, $their_mesh:expr, $tolerance:expr) => {
-        $crate::mesh_compare::approx_eq_meshes($our_mesh, $their_mesh, Some($tolerance))
+        $crate::approx_eq_meshes($our_mesh, $their_mesh, Some($tolerance))
     };
 }

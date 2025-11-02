@@ -77,11 +77,11 @@ impl Aabb {
 	}
 }
 
-pub trait AABBOverlap<T> {
+pub trait AabbOverlap<T> {
 	fn does_overlap(&self, other: &T) -> bool;
 }
 
-impl AABBOverlap<Aabb> for Aabb {
+impl AabbOverlap<Aabb> for Aabb {
 	///Does this box overlap the one given (including equality)?
 	fn does_overlap(&self, other: &Aabb) -> bool {
 		self.min.x <= other.max.x
@@ -93,7 +93,7 @@ impl AABBOverlap<Aabb> for Aabb {
 	}
 }
 
-impl AABBOverlap<Point3<f64>> for Aabb {
+impl AabbOverlap<Point3<f64>> for Aabb {
 	///Does the given point project within the XY extent of this box
 	///(including equality)?
 	fn does_overlap(&self, p: &Point3<f64>) -> bool {

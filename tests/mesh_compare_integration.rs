@@ -4,7 +4,7 @@
 //! approximately equivalent to the original manifold-rs library.
 
 use manifold_rs::Manifold;
-use meshbool::{cube, get_mesh_gl, translate};
+use meshbool::{cube, get_mesh_gl, translate, MeshBool};
 use nalgebra::Vector3;
 
 /// Default tolerance for mesh comparison
@@ -23,7 +23,7 @@ const DEFAULT_TOLERANCE: f64 = 0.1; // Increased tolerance for different triangu
 /// # Returns
 /// * `true` if meshes are approximately equal within tolerance
 /// * `false` otherwise
-fn approx_eq_meshes(our_mesh: &meshbool::Impl, their_mesh: &Manifold, tolerance: Option<f64>) -> bool {
+fn approx_eq_meshes(our_mesh: &MeshBool, their_mesh: &Manifold, tolerance: Option<f64>) -> bool {
     let tolerance = tolerance.unwrap_or(DEFAULT_TOLERANCE);
 
     // Get mesh data from both implementations

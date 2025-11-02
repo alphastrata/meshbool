@@ -1,9 +1,9 @@
 use meshbool::MeshBool;
-use nalgebra::Vector3;
+use nalgebra::{Vector3, Point3};
 
 fn main() {
-    println!("🧪 TESTING BASIC MESHBOOL FUNCTIONALITY");
-    println!("=====================================");
+    println!("🧪 TESTING MESHBOOL CORE FUNCTIONALITY");
+    println!("====================================");
     
     // Test 1: Basic cube creation
     println!("\n🏗️  Test 1: Creating basic cube...");
@@ -18,11 +18,17 @@ fn main() {
     let union = &cube1 + &cube2;
     println!("   ✓ Union operation successful with {} triangles", union.num_tri());
     
-    // Test 3: Translation operation
+    // Test 3: Translation
     println!("\n➡️  Test 3: Translation operation...");
-    let translated = cube1.translate(nalgebra::Point3::new(1.0, 0.0, 0.0));
+    let translated = cube1.translate(Point3::new(1.0, 0.0, 0.0));
     println!("   ✓ Translation successful with {} triangles", translated.num_tri());
     
-    println!("\n🎉 ALL BASIC FUNCTIONALITY TESTS COMPLETED SUCCESSFULLY!");
+    // Test 4: Get mesh data
+    println!("\n📋 Test 4: Getting mesh data...");
+    let mesh_gl = cube1.get_mesh_gl(0);
+    println!("   ✓ Got mesh data with {} vertices and {} triangles", 
+             mesh_gl.vert_properties.len() / mesh_gl.num_prop as usize, mesh_gl.tri_verts.len() / 3);
+    
+    println!("\n🎉 ALL CORE FUNCTIONALITY TESTS COMPLETED SUCCESSFULLY!");
     println!("=====================================================");
 }

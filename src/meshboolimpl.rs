@@ -1,5 +1,5 @@
 use crate::collider::Collider;
-use crate::common::{AABB, sun_acos};
+use crate::common::{Aabb, sun_acos};
 use crate::disjoint_sets::DisjointSets;
 use crate::mesh_fixes::{FlipTris, transform_normal};
 use crate::parallel::exclusive_scan_in_place;
@@ -47,7 +47,7 @@ pub static MESH_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 ///consistent meaning between different inputs.
 #[derive(Clone, Debug)]
 pub struct MeshBoolImpl {
-	pub bbox: AABB,
+	pub bbox: Aabb,
 	pub epsilon: f64,
 	pub tolerance: f64,
 	pub num_prop: i32,
@@ -688,9 +688,7 @@ impl MeshBoolImpl {
 				let mut offsets: Vec<i32> = vec![0; (vert_count * 2) as usize];
 				let mut set_offset = |_e: i32, v0: i32, v1: i32| {
 					let offset = if v0 > v1 { 0 } else { vert_count };
-					unsafe {
-						atomic_add_i32(&mut offsets[(v0.min(v1) + offset) as usize], 1);
-					}
+					atomic_add_i32(&mut offsets, (v0.min(v1) + offset) as usize, 1);
 				};
 
 				if tri_vert.is_empty() {
@@ -731,7 +729,7 @@ impl MeshBoolImpl {
 						let offset = if v0 > v1 { 0 } else { vert_count as i32 };
 						let start = v0.min(v1);
 						let index =
-							unsafe { atomic_add_i32(&mut offsets[(start + offset) as usize], 1) };
+								atomic_add_i32(&mut offsets, (start + offset) as usize, 1);
 						entries[index as usize] = HalfedgePairData {
 							large_vert: v0.max(v1),
 							tri,
@@ -847,7 +845,7 @@ impl MeshBoolImpl {
 	}
 
 	pub fn make_empty(&mut self, status: ManifoldError) {
-		self.bbox = AABB::default();
+		self.bbox = Aabb::default();
 		self.vert_pos = Vec::default();
 		self.halfedge = Vec::default();
 		self.vert_normal = Vec::default();
@@ -1141,11 +1139,11 @@ impl MeshBoolImpl {
 			}
 		}
 
-		let mut vert_labels: Vec<i32> = vec![];
+		let mut vert_labels: Vec<u32> = vec![];
 		let num_prop_vert = self.num_prop_vert();
 
 		fn get_labels(
-			components: &mut Vec<i32>,
+			components: &mut Vec<u32>,
 			edges: &Vec<(i32, i32)>,
 			num_nodes: usize,
 		) -> usize {
@@ -1157,17 +1155,24 @@ impl MeshBoolImpl {
 				uf.unite(edge.0 as u32, edge.1 as u32);
 			}
 
-			return uf.connected_components(components);
+			uf.connected_components(components);
+			return components.len();
 		}
 
-		let num_labels = get_labels(&mut vert_labels, &vert2vert, num_prop_vert);
+		let _num_labels = get_labels(&mut vert_labels, &vert2vert, num_prop_vert);
 
-		let mut label2vert: Vec<i32> = Vec::with_capacity(num_labels);
+		// Find the maximum component ID to determine the size of label2vert
+		let max_label = *vert_labels.iter().max().unwrap_or(&0) as usize + 1;
+		let mut label2vert: Vec<i32> = vec![-1; max_label];
 		for v in 0..num_prop_vert {
 			label2vert[vert_labels[v] as usize] = v as i32;
 		}
 		for edge in self.halfedge.iter_mut() {
-			edge.prop_vert = label2vert[vert_labels[edge.prop_vert as usize] as usize];
+			// Only update if the label is valid
+			let label = vert_labels[edge.prop_vert as usize] as usize;
+			if label < label2vert.len() && label2vert[label] >= 0 {
+				edge.prop_vert = label2vert[label];
+			}
 		}
 	}
 }
@@ -1175,7 +1180,7 @@ impl MeshBoolImpl {
 impl Default for MeshBoolImpl {
 	fn default() -> Self {
 		Self {
-			bbox: AABB::default(),
+			bbox: Aabb::default(),
 			epsilon: -1.0,
 			tolerance: -1.0,
 			num_prop: 0,

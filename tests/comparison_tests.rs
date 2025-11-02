@@ -1,8 +1,8 @@
-use meshbool::{cube, get_mesh_gl, translate};
+use meshbool::{cube, get_mesh_gl, translate, MeshBool};
 use nalgebra::Vector3;
 
 /// Compare two of our meshes for approximate equality by checking basic properties
-fn approx_equal_meshes(mesh1: &meshbool::Impl, mesh2: &meshbool::Impl) -> bool {
+fn approx_equal_meshes(mesh1: &MeshBool, mesh2: &MeshBool) -> bool {
     // Get mesh data from both implementations
     let mesh1_gl = get_mesh_gl(mesh1, 0);
     let mesh2_gl = get_mesh_gl(mesh2, 0);

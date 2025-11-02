@@ -1,5 +1,5 @@
 use crate::collider::Recorder;
-use crate::common::{AABB, AABBOverlap, OpType};
+use crate::common::{Aabb, AabbOverlap, OpType};
 use crate::disjoint_sets::DisjointSets;
 use crate::meshboolimpl::MeshBoolImpl;
 use crate::shared::Halfedge;
@@ -490,12 +490,12 @@ fn intersect12(
 	let f = |i| {
 		let i = i as usize;
 		if a.halfedge[i].is_forward() {
-			AABB::new(
+			Aabb::new(
 				a.vert_pos[a.halfedge[i].start_vert as usize],
 				a.vert_pos[a.halfedge[i].end_vert as usize],
 			)
 		} else {
-			AABB::default()
+			Aabb::default()
 		}
 	};
 

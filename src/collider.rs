@@ -1,4 +1,4 @@
-use crate::common::{Aabb, AABBOverlap};
+use crate::common::{Aabb, AabbOverlap};
 use crate::utils::atomic_add_i32;
 use crate::vec::vec_uninit;
 use nalgebra::{Matrix3x4, Point3, Vector3};
@@ -142,9 +142,9 @@ impl<'a> CreateRadixTree<'a> {
     }
 }
 
-struct FindCollision<'a, F, AABBOverlapT, RecorderT>
+struct FindCollision<'a, F, AabbOverlapT, RecorderT>
 where
-    F: Fn(i32) -> AABBOverlapT,
+    F: Fn(i32) -> AabbOverlapT,
     RecorderT: Recorder,
 {
     f: &'a F,
@@ -153,12 +153,12 @@ where
     recorder: &'a mut RecorderT,
 }
 
-impl<'a, F, AABBOverlapT, RecorderT> FindCollision<'a, F, AABBOverlapT, RecorderT>
+impl<'a, F, AabbOverlapT, RecorderT> FindCollision<'a, F, AabbOverlapT, RecorderT>
 where
-    F: Fn(i32) -> AABBOverlapT,
-    AABBOverlapT: Debug,
+    F: Fn(i32) -> AabbOverlapT,
+    AabbOverlapT: Debug,
     RecorderT: Recorder,
-    Aabb: AABBOverlap<AABBOverlapT>,
+    Aabb: AabbOverlap<AabbOverlapT>,
 {
     #[inline]
     fn record_collision(&mut self, node: i32, query_idx: i32) -> bool {
@@ -338,16 +338,16 @@ impl Collider {
     ///If parallel is false, the function will run in sequential mode.
     ///
     ///If thread local storage is not needed, use SimpleRecorder.
-    pub fn collisions<F, AABBOverlapT, RecorderT>(
+    pub fn collisions<F, AabbOverlapT, RecorderT>(
         &self,
         f: F,
         n: usize,
         recorder: &mut impl Recorder,
     ) where
-        F: Fn(i32) -> AABBOverlapT,
-        AABBOverlapT: Debug,
+        F: Fn(i32) -> AabbOverlapT,
+        AabbOverlapT: Debug,
         RecorderT: Recorder,
-        Aabb: AABBOverlap<AABBOverlapT>,
+        Aabb: AabbOverlap<AabbOverlapT>,
     {
         if self.internal_children.is_empty() {
             return;

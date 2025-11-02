@@ -1,0 +1,23 @@
+
+    /// Create a MeshBoolImpl from raw vertex positions and triangle indices
+    pub fn from_raw_vertices(vertices: Vec<nalgebra::Point3<f64>>, triangles: Vec<nalgebra::Vector3<i32>>) -> Option<Self> {
+        if vertices.is_empty() || triangles.is_empty() {
+            return None;
+        }
+        
+        let mut r#impl = Self {
+            vert_pos: vertices,
+            ..MeshBoolImpl::default()
+        };
+        
+        r#impl.create_halfedges(triangles, Vec::new());
+        r#impl.finish();
+        r#impl.initialize_original(false);
+        r#impl.mark_coplanar();
+        
+        if r#impl.status != crate::ManifoldError::NoError {
+            return None;
+        }
+        
+        Some(r#impl)
+    }

@@ -16,9 +16,22 @@ where
         return;
     }
 
-    output[0] = input.next().unwrap();
-    for i in 1..output.len() {
-        output[i] = input.next().unwrap() + output[i - 1];
+    // Check if we have at least one item
+    if let Some(first) = input.next() {
+        output[0] = first;
+        for i in 1..output.len() {
+            if let Some(item) = input.next() {
+                output[i] = item + output[i - 1];
+            } else {
+                // If we run out of items, fill with default
+                output[i] = IO::default();
+            }
+        }
+    } else {
+        // If no items, fill with default
+        for i in 0..output.len() {
+            output[i] = IO::default();
+        }
     }
 }
 
